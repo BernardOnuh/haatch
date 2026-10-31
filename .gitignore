@@ -1,0 +1,8 @@
+node_modules/
+# Secrets — never commit. Only .env.example (no real values) is tracked.
+.env
+.env.*
+!.env.example
+data/
+public/pay.js
+.DS_Store
