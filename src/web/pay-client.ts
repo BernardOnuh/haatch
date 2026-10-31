@@ -72,7 +72,10 @@ function failureReason(res: Response): string {
   const header = res.headers.get("payment-required");
   try {
     const reason: string | undefined = header ? JSON.parse(atob(header)).error : undefined;
-    if (reason?.includes("insufficient_funds")) return "Not enough balance in this wallet to pay.";
+    if (reason?.includes("insufficient_funds")) {
+      const testnet = window.__TASK__.network !== "eip155:42220";
+      return "Not enough balance in this wallet to pay." + (testnet ? " Get free test USDC at faucet.circle.com (Celo Sepolia)." : "");
+    }
     if (reason) return `Payment rejected: ${reason}`;
   } catch {}
   return `Payment failed (${res.status})`;

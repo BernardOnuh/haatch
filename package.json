@@ -9,7 +9,8 @@
     "typecheck": "tsc --noEmit",
     "register-agent": "tsx scripts/register-agent.ts",
     "test-pay": "tsx scripts/test-pay.ts",
-    "test-worker": "tsx scripts/test-worker.ts"
+    "test-worker": "tsx scripts/test-worker.ts",
+    "demo-wallet": "tsx scripts/demo-wallet.ts"
   },
   "type": "module",
   "dependencies": {

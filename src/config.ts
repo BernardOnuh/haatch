@@ -36,11 +36,23 @@ const Env = z.object({
     .transform((v) => v || CHROME_CANDIDATES.find((p) => existsSync(p)))
     .pipe(z.string({ error: "Chrome not found — set CHROME_PATH" })),
   FFMPEG_PATH: z.string().default("ffmpeg"),
+  /**
+   * Testnet only: a platform-funded wallet that pays quotes for testers through the real
+   * x402 flow ("⚡ Pay with demo wallet"), so judges can try paid tasks without a wallet.
+   */
+  DEMO_PAYER_PRIVATE_KEY: z
+    .string()
+    .optional()
+    .transform((v) => v || undefined)
+    .pipe(z.string().regex(/^0x[a-fA-F0-9]{64}$/, "must be a 0x-prefixed private key").optional()),
+  DEMO_PAYS_PER_USER_DAILY: z.coerce.number().int().min(0).default(3),
   AGENT_ID: z.string().optional(),
   DATABASE_PATH: z.string().default("./data/app.db"),
 });
 
-export const env = Env.parse(process.env);
+export const env = Env.refine((e) => !(e.DEMO_PAYER_PRIVATE_KEY && e.X402_NETWORK === "mainnet"), {
+  message: "DEMO_PAYER_PRIVATE_KEY is testnet-only — remove it before switching X402_NETWORK to mainnet",
+}).parse(process.env);
 
 /**
  * Payment asset per network. Values come from the Celo facilitator's authoritative

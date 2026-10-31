@@ -5,6 +5,7 @@ import { CATALOG, formatAtomic, isTaskType, listedServices, toAtomic, type TaskT
 import { chats, taskMessages, tasks, type Task } from "../db/db.js";
 import type { Notifier } from "../orchestrator/orchestrator.js";
 import type { OpenCodeRunner } from "../workers/opencode-runner.js";
+import { demoPayer } from "../payments/demo-payer.js";
 import type { StoredResult } from "../workers/result-schema.js";
 
 const BRIEF_TEMPLATE = `Send your brief in one message. Include:
@@ -216,15 +217,62 @@ export function createBot({ startTask, revise, runner }: BotDeps) {
     }
 
     const task = tasks.create({ chat_id: chatId, user_id: userId, type, brief, price_atomic: toAtomic(CATALOG[type].price) });
-    const amount = `${formatAtomic(task.price_atomic)} ${payment.symbol}`;
-    const text = `🧾 Quote: ${CATALOG[type].title}\nPrice: ${amount} on Celo (gasless, via x402)\nTask: ${task.id.slice(0, 8)}`;
-    // Telegram only accepts https URLs on buttons; fall back to a plain link in local dev.
-    if (env.PUBLIC_URL.startsWith("https://")) {
-      await reply(text, { reply_markup: new InlineKeyboard().url(`Pay ${amount}`, payUrl(task)) });
-    } else {
-      await reply(`${text}\n\nPay here: ${payUrl(task)}`);
-    }
+    await sendQuote(task, reply);
   }
+
+  /** Quote with payment options: demo wallet (testnet) and/or the tester's own wallet. */
+  async function sendQuote(
+    task: Task,
+    reply: (msg: string, other?: Parameters<Bot["api"]["sendMessage"]>[2]) => Promise<unknown>,
+  ) {
+    const amount = `${formatAtomic(task.price_atomic)} ${payment.symbol}`;
+    let text = `🧾 Quote: ${CATALOG[task.type].title}\nPrice: ${amount} on Celo (gasless, via x402)\nTask: ${task.id.slice(0, 8)}`;
+    const kb = new InlineKeyboard();
+    if (demoPayer) {
+      text += "\n\n⚡ Testnet demo: tap below and our demo wallet pays for you — a real x402 payment settled on Celo Sepolia. No wallet needed.";
+      kb.text(`⚡ Pay ${amount} with demo wallet`, `demopay:${task.id}`).row();
+    }
+    // Telegram only accepts https URLs on buttons; fall back to a plain link in local dev.
+    if (env.PUBLIC_URL.startsWith("https://")) kb.url(demoPayer ? "👛 Pay with my own wallet" : `Pay ${amount}`, payUrl(task));
+    else text += `\n\n${demoPayer ? "Or pay with your own wallet" : "Pay here"}: ${payUrl(task)}`;
+    await reply(text, kb.inline_keyboard.length ? { reply_markup: kb, link_preview_options: { is_disabled: true } } : undefined);
+  }
+
+  bot.callbackQuery(/^demopay:(.+)$/, async (ctx) => {
+    const task = tasks.get(ctx.match[1]);
+    if (!demoPayer || !task || task.chat_id !== ctx.chat?.id) return ctx.answerCallbackQuery({ text: "This quote isn't available." });
+    if (task.status !== "quoted") return ctx.answerCallbackQuery({ text: `This task is already ${task.status}.` });
+    if (tasks.demoPaysToday(task.user_id) >= env.DEMO_PAYS_PER_USER_DAILY) {
+      return ctx.answerCallbackQuery({
+        text: `Demo wallet limit reached (${env.DEMO_PAYS_PER_USER_DAILY}/day). Pay with your own wallet or try tomorrow.`,
+        show_alert: true,
+      });
+    }
+    await ctx.answerCallbackQuery({ text: "Paying with the demo wallet…" });
+    await ctx.editMessageReplyMarkup().catch(() => {}); // prevent double taps
+    const amount = `${formatAtomic(task.price_atomic)} ${payment.symbol}`;
+    const status = await ctx.reply(`⏳ Demo wallet is paying ${amount} via x402 on Celo Sepolia… (~10s)`);
+
+    // Settlement takes seconds; don't block the update loop.
+    void demoPayer.pay(task.id).then(async (r) => {
+      if (r.ok) {
+        tasks.update(task.id, { paid_via: "demo" });
+        await bot.api.editMessageText(task.chat_id, status.message_id, "⚡ Paid by the demo wallet via x402 — receipt below.");
+        return;
+      }
+      console.error(`[demo-pay] ${task.id} failed: ${r.error}`);
+      const empty = /insufficient/i.test(r.error);
+      await bot.api.editMessageText(
+        task.chat_id,
+        status.message_id,
+        empty
+          ? "⚠️ The demo wallet is out of test funds right now — the team has been notified. You can still pay with your own wallet below."
+          : `⚠️ Demo payment didn't go through (${r.error}). Try again below.`,
+      );
+      const fresh = tasks.get(task.id);
+      if (fresh?.status === "quoted") await sendQuote(fresh, (m, o) => bot.api.sendMessage(task.chat_id, m, o));
+    });
+  });
 
   async function handleRevision(taskId: string, feedback: string, reply: (msg: string) => Promise<unknown>) {
     const task = tasks.get(taskId);

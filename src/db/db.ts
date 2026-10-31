@@ -42,6 +42,7 @@ export interface Task {
   is_trial: number;
   /** Revisions done after delivery (via Telegram reply). */
   revisions: number;
+  paid_via: string | null;
   opencode_session: string | null;
   created_at: string;
   updated_at: string;
@@ -81,6 +82,7 @@ const addColumn = (name: string, ddl: string) => {
 };
 addColumn("is_trial", "INTEGER NOT NULL DEFAULT 0");
 addColumn("revisions", "INTEGER NOT NULL DEFAULT 0");
+addColumn("paid_via", "TEXT"); // 'demo' when the testnet demo wallet paid
 
 db.exec(`
   -- One ongoing OpenCode chat session per Telegram chat, plus a daily message counter.
@@ -168,6 +170,14 @@ export const tasks = {
   trialsUsed(userId: number): number {
     const row = db
       .prepare(`SELECT COUNT(*) AS n FROM tasks WHERE user_id = ? AND is_trial = 1 AND status != 'failed'`)
+      .get(userId) as { n: number };
+    return row.n;
+  },
+
+  /** Demo-wallet payments made for a user today (testnet tester quota). */
+  demoPaysToday(userId: number): number {
+    const row = db
+      .prepare(`SELECT COUNT(*) AS n FROM tasks WHERE user_id = ? AND paid_via = 'demo' AND updated_at >= datetime('now', 'start of day')`)
       .get(userId) as { n: number };
     return row.n;
   },
