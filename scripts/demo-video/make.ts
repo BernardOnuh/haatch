@@ -347,7 +347,7 @@ const final = path.join(OUT, "haatch-demo.mp4");
 execFileSync("ffmpeg", [
   "-y", "-loglevel", "error", ...inputs,
   "-filter_complex", filter,
-  "-map", "0:v", "-map", "[a]", "-c:v", "copy", "-c:a", "aac", "-b:a", "192k", "-t", String(T), "-movflags", "+faststart",
+  "-map", "0:v", "-map", "[a]", "-c:v", "copy", "-c:a", "aac", "-b:a", "192k", "-ar", "48000", "-ac", "2", "-t", String(T), "-movflags", "+faststart",
   final,
 ]);
 console.log(`\n✅ ${final}  (${T}s, voice: ${engine})`);

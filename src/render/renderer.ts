@@ -153,8 +153,11 @@ export class Renderer {
     const ffmpeg = spawn(env.FFMPEG_PATH, [
       "-y", "-loglevel", "error",
       "-f", "image2pipe", "-c:v", "mjpeg", "-framerate", String(FPS), "-i", "-",
-      "-vf", "scale=trunc(iw/2)*2:trunc(ih/2)*2",
-      "-c:v", "libx264", "-preset", "veryfast", "-crf", "20", "-pix_fmt", "yuv420p", "-movflags", "+faststart",
+      // JPEG frames are full-range; convert to standard TV-range yuv420p, or QuickTime/iOS/Telegram may refuse to play.
+      "-vf", "scale=trunc(iw/2)*2:trunc(ih/2)*2:in_range=pc:out_range=tv,format=yuv420p",
+      "-c:v", "libx264", "-preset", "veryfast", "-crf", "20", "-profile:v", "high", "-level", "4.1",
+      "-color_range", "tv", "-colorspace", "bt709", "-color_primaries", "bt709", "-color_trc", "bt709",
+      "-movflags", "+faststart",
       tmp,
     ]);
     let stderr = "";
