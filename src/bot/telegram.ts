@@ -127,7 +127,16 @@ export function createBot({ startTask, revise, runner }: BotDeps) {
     void work()
       .catch(async (e) => {
         console.error("[bot] agent call failed:", e);
-        await bot.api.sendMessage(chatId, "⚠️ Something went wrong on my side — please try again.").catch(() => {});
+        const msg = String((e as Error)?.message ?? e);
+        const aiDown = /ProviderAuthError|API key|usage limit|rate limit|quota|429|timed out/i.test(msg);
+        await bot.api
+          .sendMessage(
+            chatId,
+            aiDown
+              ? "⏳ Our AI studio is briefly unavailable — please try again in a few minutes. Your message wasn't charged."
+              : "⚠️ Something went wrong on my side — please try again.",
+          )
+          .catch(() => {});
       })
       .finally(() => {
         clearInterval(timer);

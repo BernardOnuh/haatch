@@ -60,6 +60,16 @@ export class OpenCodeRunner {
   }
 
   private async connect(): Promise<OpencodeClient> {
+    // Google's key has three accepted names across OpenCode/AI SDK versions; set all of them
+    // from whichever one the host provided, so the spawned `opencode serve` always finds it.
+    const googleKey = process.env.GEMINI_API_KEY || process.env.GOOGLE_GENERATIVE_AI_API_KEY || process.env.GOOGLE_API_KEY;
+    if (googleKey) {
+      process.env.GEMINI_API_KEY ||= googleKey;
+      process.env.GOOGLE_GENERATIVE_AI_API_KEY ||= googleKey;
+      process.env.GOOGLE_API_KEY ||= googleKey;
+    } else if (env.OPENCODE_MODEL.startsWith("google/")) {
+      console.error("[opencode] OPENCODE_MODEL is a Google model but no GEMINI_API_KEY is set — agent calls will fail.");
+    }
     let baseUrl = env.OPENCODE_URL;
     if (!baseUrl) {
       // Spawns `opencode serve` as a child process (needs the `opencode` CLI on PATH).
