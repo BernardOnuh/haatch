@@ -1,4 +1,4 @@
-import { payment } from "./config.js";
+import { env, payment } from "./config.js";
 import type { KnowledgeFile } from "./knowledge/index.js";
 
 interface Service {
@@ -86,7 +86,10 @@ export const isTaskType = (t: string): t is TaskType => t in CATALOG;
 
 /** Services offered to new customers. */
 export const listedServices = () =>
-  (Object.entries(CATALOG) as [TaskType, Service][]).filter(([, s]) => s.listed);
+  (Object.entries(CATALOG) as [TaskType, Service][]).filter(
+    // Video rendering needs ~1–2 GB of memory; hide it on low-memory hosts.
+    ([, s]) => s.listed && !(env.LOW_MEMORY && s.produces?.kind === "video"),
+  );
 
 /** "1.50" → "1500000" (string, atomic units, no float math). */
 export function toAtomic(amount: string, decimals = payment.decimals): string {

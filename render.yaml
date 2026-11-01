@@ -1,0 +1,37 @@
+# One-click deploy on Render: https://render.com/deploy?repo=https://github.com/BernardOnuh/haatch
+# Free plan = 512 MB and sleeps when idle, so: webhook mode (Telegram wakes it), low-memory mode
+# (one job at a time, no video). PUBLIC_URL comes from Render automatically.
+services:
+  - type: web
+    name: haatch
+    runtime: docker
+    plan: free
+    healthCheckPath: /health
+    envVars:
+      - key: TELEGRAM_MODE
+        value: webhook
+      - key: LOW_MEMORY
+        value: "true"
+      - key: WORKER_CONCURRENCY
+        value: "1"
+      - key: X402_NETWORK
+        value: testnet
+      - key: OPENCODE_MODEL
+        value: google/gemini-flash-latest
+      - key: OPENCODE_TIMEOUT_MS
+        value: "600000"
+      - key: FREE_TRIAL_TASKS
+        value: "1"
+      - key: DEMO_PAYS_PER_USER_DAILY
+        value: "3"
+      # Secrets: Render asks for these during setup (copy them from your local .env).
+      - key: TELEGRAM_BOT_TOKEN
+        sync: false
+      - key: X402_API_KEY
+        sync: false
+      - key: PAY_TO_ADDRESS
+        sync: false
+      - key: GEMINI_API_KEY
+        sync: false
+      - key: DEMO_PAYER_PRIVATE_KEY
+        sync: false

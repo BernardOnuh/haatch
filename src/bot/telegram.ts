@@ -166,6 +166,7 @@ export function createBot({ startTask, revise, runner }: BotDeps) {
     const type = ctx.match[1];
     await ctx.answerCallbackQuery();
     if (!isTaskType(type) || !ctx.chat) return;
+    if (!listedServices().some(([t]) => t === type)) return ctx.reply("That service isn't available right now — /new to see what is.");
     pendingType.set(ctx.chat.id, type);
     const s = CATALOG[type];
     await ctx.reply(`*${s.title}* — ${s.price} ${payment.symbol}\n${s.deliverable}\n\n${BRIEF_TEMPLATE}`, {

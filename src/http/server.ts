@@ -53,7 +53,7 @@ export function createApp() {
   // (Results for API-created tasks are fetched via GET /api/tasks/:id.)
   app.post("/api/tasks", async (c) => {
     const body = z
-      .object({ type: z.string().refine((t) => isTaskType(t) && CATALOG[t].listed, "unknown task type"), brief: z.string().min(20).max(4000) })
+      .object({ type: z.string().refine((t) => listedServices().some(([type]) => type === t), "unknown task type"), brief: z.string().min(20).max(4000) })
       .safeParse(await c.req.json().catch(() => null));
     if (!body.success) return c.json({ error: body.error.issues }, 400);
     const type = body.data.type as keyof typeof CATALOG;

@@ -1,4 +1,5 @@
 import type { TaskType } from "../catalog.js";
+import { env } from "../config.js";
 import type { Renderer } from "../render/renderer.js";
 import type { OpenCodeRunner, WorkerOutput } from "../workers/opencode-runner.js";
 import type { StoredResult } from "../workers/result-schema.js";
@@ -38,6 +39,11 @@ export async function produce(
     }
   }
 
-  const rendered = await renderer.renderAll(taskId, result.assets, version);
-  return { ...result, rendered };
+  try {
+    const rendered = await renderer.renderAll(taskId, result.assets, version);
+    return { ...result, rendered };
+  } finally {
+    // On small hosts, give Chrome's memory back to the OpenCode agents between jobs.
+    if (env.LOW_MEMORY) await renderer.close();
+  }
 }

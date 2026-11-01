@@ -46,9 +46,19 @@ const Env = z.object({
     .transform((v) => v || undefined)
     .pipe(z.string().regex(/^0x[a-fA-F0-9]{64}$/, "must be a 0x-prefixed private key").optional()),
   DEMO_PAYS_PER_USER_DAILY: z.coerce.number().int().min(0).default(3),
+  /**
+   * polling: the bot asks Telegram for updates (best for always-on machines).
+   * webhook: Telegram POSTs updates to PUBLIC_URL — required on hosts that sleep when idle (Render free).
+   */
+  TELEGRAM_MODE: z.enum(["polling", "webhook"]).default("polling"),
+  /** Small hosts (Render free, 512 MB): one job at a time, Chrome closed between renders, no video. */
+  LOW_MEMORY: z.stringbool().default(false),
   AGENT_ID: z.string().optional(),
   DATABASE_PATH: z.string().default("./data/app.db"),
 });
+
+// Render injects its public URL; use it when PUBLIC_URL isn't set explicitly.
+process.env.PUBLIC_URL ||= process.env.RENDER_EXTERNAL_URL;
 
 export const env = Env.refine((e) => !(e.DEMO_PAYER_PRIVATE_KEY && e.X402_NETWORK === "mainnet"), {
   message: "DEMO_PAYER_PRIVATE_KEY is testnet-only — remove it before switching X402_NETWORK to mainnet",

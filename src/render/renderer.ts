@@ -33,13 +33,18 @@ export class Renderer {
     this.browser ??= puppeteer.launch({
       executablePath: env.CHROME_PATH,
       headless: true,
-      args: ["--no-sandbox", "--disable-dev-shm-usage", "--hide-scrollbars", "--font-render-hinting=none"],
+      args: [
+        "--no-sandbox", "--disable-dev-shm-usage", "--hide-scrollbars", "--font-render-hinting=none",
+        ...(env.LOW_MEMORY ? ["--disable-gpu", "--no-zygote", "--renderer-process-limit=1", "--js-flags=--max-old-space-size=96"] : []),
+      ],
     });
     return this.browser;
   }
 
   async close() {
-    if (this.browser) await (await this.browser).close();
+    const browser = this.browser;
+    this.browser = undefined;
+    if (browser) await (await browser).close().catch(() => {});
   }
 
   /** Render all assets of a task into data/assets/<taskId>/ and return their file references. */
