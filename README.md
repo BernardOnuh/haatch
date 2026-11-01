@@ -33,7 +33,7 @@ glowing-cube clichés crypto audiences scroll straight past.
 | **Social captions pack** | 10 crypto-native captions for X, Telegram, and LinkedIn | 1.50 |
 | **Brand voice guide** | Voice pillars, tone, word lists, before/after rewrites | 3.00 |
 
-Prices are in USA₮ on Celo mainnet, or test USDC on Celo Sepolia. **The first task is free.**
+Prices are in USA₮ on Celo mainnet, or test USDC on Celo Sepolia. **The first 3 tasks are free.**
 
 ## Example output
 

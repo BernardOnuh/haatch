@@ -31,7 +31,7 @@ const Env = z.object({
   OPENCODE_TIMEOUT_MS: z.coerce.number().default(600_000),
   WORKER_CONCURRENCY: z.coerce.number().int().min(1).default(2),
   /** Free tasks per Telegram user before payment is required (0 disables trials). */
-  FREE_TRIAL_TASKS: z.coerce.number().int().min(0).default(1),
+  FREE_TRIAL_TASKS: z.coerce.number().int().min(0).default(3),
   /** Max free-trial tasks across all users per day — bounds LLM spend. */
   FREE_TRIAL_DAILY_CAP: z.coerce.number().int().min(0).default(50),
   /** Chat messages per Telegram chat per day with the conversational agent. */

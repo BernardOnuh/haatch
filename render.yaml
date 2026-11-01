@@ -26,7 +26,7 @@ services:
       - key: OPENCODE_TIMEOUT_MS
         value: "600000"
       - key: FREE_TRIAL_TASKS
-        value: "1"
+        value: "3"
       - key: DEMO_PAYS_PER_USER_DAILY
         value: "3"
       # Secrets: Render asks for these during setup (copy them from your local .env).

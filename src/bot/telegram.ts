@@ -192,12 +192,12 @@ export function createBot({ startTask, revise, exportHd, runner }: BotDeps) {
   };
 
   bot.command("start", (ctx) => {
-    const free = ctx.from && trialsLeft(ctx.from.id) > 0;
+    const left = ctx.from ? trialsLeft(ctx.from.id) : 0;
     return ctx.reply(
       "👋 I'm your web3 creative studio.\n\nPromo flyers, motion videos and campaign copy for your project — made by AI designers " +
         "trained on what actually works in crypto. Pick a task, send a brief, get the files right here." +
-        (free
-          ? "\n\n🎁 Your first task is free. After that, pay per task in " + `${payment.symbol} on Celo — no subscription.`
+        (left > 0
+          ? `\n\n🎁 You have ${left} free task${left === 1 ? "" : "s"}. After that, pay per task in ${payment.symbol} on Celo — no subscription.`
           : `\n\nPay per task in ${payment.symbol} on Celo — no subscription.`) +
           "\n\n💬 You can also just message me — ask anything about your launch or brand.",
       { reply_markup: menu() },
@@ -343,7 +343,11 @@ export function createBot({ startTask, revise, exportHd, runner }: BotDeps) {
 
     if (trialsLeft(userId) > 0 && tasks.trialsToday() < env.FREE_TRIAL_DAILY_CAP) {
       const trial = tasks.createTrial({ chat_id: chatId, user_id: userId, type, brief });
-      await reply(`🎁 Free trial — this one's on us (normally ${CATALOG[type].price} ${payment.symbol}).`);
+      const remaining = trialsLeft(userId);
+      await reply(
+        `🎁 Free task — this one's on us (normally ${CATALOG[type].price} ${payment.symbol}). ` +
+          (remaining ? `${remaining} free task${remaining === 1 ? "" : "s"} left after this.` : "That's your last free one."),
+      );
       startTask(trial.id);
       return;
     }
@@ -465,7 +469,7 @@ export function telegramNotifier(bot: Bot): Notifier {
       if (task.is_trial && trialsLeft(task.user_id) === 0) {
         await bot.api.sendMessage(
           task.chat_id,
-          `That was your free trial 🎁\n\nEvery task from here is pay-per-task in ${payment.symbol} on Celo — ` +
+          `That was your last free task 🎁\n\nEvery task from here is pay-per-task in ${payment.symbol} on Celo — ` +
             `from ${Math.min(...listedServices().map(([, s]) => Number(s.price))).toFixed(2)} ${payment.symbol}, gasless, no subscription.`,
           { reply_markup: menu() },
         );
@@ -475,7 +479,7 @@ export function telegramNotifier(bot: Bot): Notifier {
     async failed(task) {
       if (!task.chat_id) return;
       if (task.is_trial) {
-        await bot.api.sendMessage(task.chat_id, "⚠️ Your free trial task couldn't be completed. Your free trial is still available — /new to try again.");
+        await bot.api.sendMessage(task.chat_id, "⚠️ Your free task couldn't be completed, so it hasn't been counted — you still have it. /new to try again.");
         return;
       }
       await bot.api.sendMessage(
