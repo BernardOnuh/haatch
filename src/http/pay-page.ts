@@ -30,7 +30,9 @@ export function payPage(task: Task): string {
   <div class="muted">${esc(service.deliverable)}</div>
   <div class="price">${amount} ${payment.symbol}</div>
   <div class="muted">Paid on Celo via x402 · gasless · task ${task.id.slice(0, 8)}</div>
-  ${payment.network === "eip155:42220" ? "" : `<div class="muted" style="margin-top:8px">🧪 Testnet: get free test USDC at <a href="https://faucet.circle.com" target="_blank" rel="noopener" style="display:inline">faucet.circle.com</a> (choose Celo Sepolia). No gas needed.</div>`}<br>
+  ${payment.network === "eip155:42220"
+    ? `<div class="muted" style="margin-top:8px">🚰 No USA₮ yet? Verified humans can claim free USA₮ on Celo at the <a href="https://cloud.google.com/application/web3/faucet/celo/mainnet" target="_blank" rel="noopener" style="display:inline">Google Cloud × Self faucet</a>. No gas needed to pay.</div>`
+    : `<div class="muted" style="margin-top:8px">🧪 Testnet: get free test USDC at <a href="https://faucet.circle.com" target="_blank" rel="noopener" style="display:inline">faucet.circle.com</a> (choose Celo Sepolia). No gas needed.</div>`}<br>
   <button id="pay" ${done ? "disabled" : ""}>${done ? `Already ${task.status}` : `Pay ${amount} ${payment.symbol}`}</button>
   <div id="status" aria-live="polite"></div>
   <a id="tx" target="_blank" rel="noopener" hidden></a>

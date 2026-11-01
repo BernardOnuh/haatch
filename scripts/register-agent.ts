@@ -1,13 +1,18 @@
 // One-time: mint this platform's ERC-8004 Agent ID on Celo.
+//   Easiest: open PUBLIC_URL/register-agent?t=ADMIN_TOKEN and register from your own wallet (no key needed).
+//   CLI alternative:
 //   1. Deploy the backend so PUBLIC_URL/.well-known/agent-registration.json is reachable.
 //   2. REGISTRAR_PRIVATE_KEY=0x... npm run register-agent   (wallet needs a little CELO for gas)
 //   3. Put the printed AGENT_ID in .env and restart — the registration file then lists it.
 import { createPublicClient, createWalletClient, http, parseEventLogs } from "viem";
 import { privateKeyToAccount } from "viem/accounts";
 import { celo, celoSepolia } from "viem/chains";
-import { payment } from "../src/config.js";
+import { env, payment } from "../src/config.js";
+import { attributionSuffix } from "../src/identity/attribution.js";
 import { IDENTITY_REGISTRY, agentUri, identityRegistryAbi } from "../src/identity/erc8004.js";
 
+// Refuse before anything is sent: untagged transactions can't be credited later.
+const dataSuffix = attributionSuffix(env.ATTRIBUTION_CODE);
 const pk = process.env.REGISTRAR_PRIVATE_KEY as `0x${string}` | undefined;
 if (!pk) throw new Error("Set REGISTRAR_PRIVATE_KEY");
 
@@ -29,7 +34,7 @@ const { request } = await publicClient.simulateContract({
   functionName: "register",
   args: [uri],
 });
-const hash = await wallet.writeContract(request);
+const hash = await wallet.writeContract({ ...request, dataSuffix }); // ERC-8021 attribution
 const receipt = await publicClient.waitForTransactionReceipt({ hash });
 
 // Read the id from the event, not the return value (another registration could land first).

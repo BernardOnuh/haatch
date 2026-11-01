@@ -5,7 +5,7 @@
   "scripts": {
     "dev": "npm run build:pay && tsx watch src/index.ts",
     "start": "npm run build:pay && tsx src/index.ts",
-    "build:pay": "esbuild src/web/pay-client.ts --bundle --format=esm --target=es2022 --outfile=public/pay.js --minify",
+    "build:pay": "esbuild src/web/pay-client.ts --bundle --format=esm --target=es2022 --outfile=public/pay.js --minify && esbuild src/web/register-client.ts --bundle --format=esm --target=es2022 --outfile=public/register.js --minify",
     "typecheck": "tsc --noEmit",
     "register-agent": "tsx scripts/register-agent.ts",
     "test-pay": "tsx scripts/test-pay.ts",

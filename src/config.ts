@@ -74,6 +74,10 @@ const Env = z.object({
   KEEP_AWAKE: z.stringbool().default(false),
   /** Small hosts (Render free, 512 MB): one job at a time, Chrome closed between renders, no video. */
   LOW_MEMORY: z.stringbool().default(false),
+  /** ERC-8021 attribution code from the Loops hackathon registration; appended to every tx we send. */
+  ATTRIBUTION_CODE: z.string().optional().transform((v) => v?.trim() || undefined),
+  /** Protects operator-only pages (e.g. /register-agent). */
+  ADMIN_TOKEN: z.string().optional().transform((v) => v?.trim() || undefined),
   AGENT_ID: z.string().optional(),
   DATABASE_PATH: z.string().default("./data/app.db"),
 });
@@ -81,8 +85,14 @@ const Env = z.object({
 // Render injects its public URL; use it when PUBLIC_URL isn't set explicitly.
 process.env.PUBLIC_URL ||= process.env.RENDER_EXTERNAL_URL;
 
-export const env = Env.refine((e) => !(e.DEMO_PAYER_PRIVATE_KEY && e.X402_NETWORK === "mainnet"), {
-  message: "DEMO_PAYER_PRIVATE_KEY is testnet-only — remove it before switching X402_NETWORK to mainnet",
+export const env = Env.transform((e) => {
+  // The demo wallet pays with the platform's own funds — fine for testnet demos, but on mainnet
+  // those payments aren't "independent" (and would spend real money), so it's disabled there.
+  if (e.X402_NETWORK === "mainnet" && e.DEMO_PAYER_PRIVATE_KEY) {
+    console.warn("[config] DEMO_PAYER_PRIVATE_KEY ignored on mainnet — demo wallet payments are testnet-only.");
+    return { ...e, DEMO_PAYER_PRIVATE_KEY: undefined };
+  }
+  return e;
 }).parse(process.env);
 
 /**

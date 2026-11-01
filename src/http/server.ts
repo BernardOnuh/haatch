@@ -10,7 +10,8 @@ import type { StoredResult } from "../workers/result-schema.js";
 import { tasks, type Task } from "../db/db.js";
 import { resourceServer, routes } from "../payments/x402.js";
 import { payPage } from "./pay-page.js";
-import { agentCard } from "../identity/erc8004.js";
+import { agentCard, agentUri, IDENTITY_REGISTRY } from "../identity/erc8004.js";
+import { attributionSuffix } from "../identity/attribution.js";
 
 const publicTask = (t: Task) => ({
   id: t.id,
@@ -94,6 +95,40 @@ export function createApp() {
     return c.html(payPage(task));
   });
   app.get("/pay.js", serveStatic({ path: "./public/pay.js" }));
+  // Operator page: register the ERC-8004 identity from your own wallet, with the ERC-8021 tag.
+  app.get("/register-agent", (c) => {
+    if (!env.ADMIN_TOKEN || c.req.query("t") !== env.ADMIN_TOKEN) return c.notFound();
+    let suffix: string | null = null;
+    try {
+      suffix = attributionSuffix(env.ATTRIBUTION_CODE);
+    } catch {}
+    const boot = JSON.stringify({
+      chainId: payment.network === "eip155:42220" ? 42220 : 11142220,
+      registry: IDENTITY_REGISTRY[payment.network],
+      agentUri: agentUri(),
+      suffix,
+      explorer: payment.explorer,
+      code: env.ATTRIBUTION_CODE ?? null,
+    });
+    return c.html(`<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Register haatch agent</title><style>
+body{margin:0;font:16px/1.5 system-ui;background:#0a0b0d;color:#f4f5f0;display:grid;place-items:center;min-height:100vh;padding:16px;box-sizing:border-box}
+main{max-width:560px;width:100%;background:#15171b;border:1px solid #2a2d33;border-radius:16px;padding:24px}
+h1{margin:0 0 6px;font-size:22px}.m{color:#8b8f87;font-size:14px}code{color:#c8ff3d;word-break:break-all}
+button{margin-top:18px;width:100%;padding:14px;border:0;border-radius:12px;background:#c8ff3d;color:#0a0b0d;font-weight:700;font-size:16px;cursor:pointer}
+button:disabled{opacity:.5}#log div{margin-top:10px;font-size:14px}.ok{color:#c8ff3d}.err{color:#ff6a5a}a{color:inherit}
+</style></head><body><main>
+<h1>Register haatch on ERC-8004</h1>
+<div class="m">Network: <b>${payment.network === "eip155:42220" ? "Celo mainnet" : "Celo Sepolia (testnet)"}</b><br>
+Registry: <code>${IDENTITY_REGISTRY[payment.network]}</code><br>
+Agent URI: <code>${agentUri()}</code><br>
+ERC-8021 attribution: ${env.ATTRIBUTION_CODE ? `<code>${env.ATTRIBUTION_CODE}</code> ✓` : `<b style="color:#ff6a5a">not set: registration blocked</b>`}<br>
+${env.AGENT_ID ? `<b style="color:#ff6a5a">AGENT_ID is already set (${env.AGENT_ID}). Registering again creates a second identity.</b>` : ""}</div>
+<button id="go">Connect wallet & register</button><div id="log"></div>
+</main><script>window.__REG__=${boot};</script><script type="module" src="/register.js"></script></body></html>`);
+  });
+  app.get("/register.js", serveStatic({ path: "./public/register.js" }));
+
   // Logo referenced by the ERC-8004 registration file.
   app.get("/logo.png", serveStatic({ path: "./brand/haatch-avatar.png" }));
 

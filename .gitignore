@@ -7,3 +7,4 @@ data/
 public/pay.js
 .DS_Store
 dist/
+public/register.js

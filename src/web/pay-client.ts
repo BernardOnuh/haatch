@@ -74,7 +74,8 @@ function failureReason(res: Response): string {
     const reason: string | undefined = header ? JSON.parse(atob(header)).error : undefined;
     if (reason?.includes("insufficient_funds")) {
       const testnet = window.__TASK__.network !== "eip155:42220";
-      return "Not enough balance in this wallet to pay." + (testnet ? " Get free test USDC at faucet.circle.com (Celo Sepolia)." : "");
+      return "Not enough balance in this wallet to pay." +
+        (testnet ? " Get free test USDC at faucet.circle.com (Celo Sepolia)." : " Verified humans can claim free USA₮ via the Google Cloud × Self faucet (link above).");
     }
     if (reason) return `Payment rejected: ${reason}`;
   } catch {}
