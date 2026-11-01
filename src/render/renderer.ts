@@ -143,8 +143,9 @@ export class Renderer {
     }
   }
 
-  async renderVideo(asset: DesignAsset): Promise<Buffer> {
-    const seconds = Math.min(30, Math.max(3, asset.duration_seconds ?? 15));
+  /** @param maxSeconds cap for agent-made videos; scripts (e.g. the demo video) may allow longer. */
+  async renderVideo(asset: DesignAsset, maxSeconds = 30): Promise<Buffer> {
+    const seconds = Math.min(maxSeconds, Math.max(3, asset.duration_seconds ?? 15));
     const frames = Math.round(seconds * FPS);
     const tmp = path.join(paths.assets, `.tmp-${Date.now()}-${Math.random().toString(36).slice(2)}.mp4`);
     const page = await this.openPage(asset);
