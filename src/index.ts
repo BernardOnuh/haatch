@@ -74,7 +74,14 @@ if (env.KEEP_AWAKE) {
   console.log("[http] keep-awake: pinging /health every 10 min");
 }
 
+let shuttingDown = false;
 const shutdown = async () => {
+  if (shuttingDown) return;
+  shuttingDown = true;
+  // Hosts send SIGTERM on every deploy/restart. Finish replies already in progress first
+  // (Render allows ~30s), otherwise messages Telegram already delivered are silently lost.
+  const unfinished = await bot.drain(25_000);
+  if (unfinished) console.warn(`[shutdown] ${unfinished} chat(s) still busy after 25s; exiting anyway`);
   orchestrator.stop();
   if (env.TELEGRAM_MODE === "polling") await bot.stop();
   http.close();

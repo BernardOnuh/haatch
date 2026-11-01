@@ -443,7 +443,15 @@ export function createBot({ startTask, revise, exportHd, runner }: BotDeps) {
   }
 
   bot.catch((err) => console.error("[bot]", err.error));
-  return bot;
+
+  /** Resolves when no chat has agent work in flight (or after `maxMs`). Used for graceful shutdown. */
+  const drain = async (maxMs: number) => {
+    const until = Date.now() + maxMs;
+    while (busy.size && Date.now() < until) await new Promise((r) => setTimeout(r, 250));
+    return busy.size;
+  };
+
+  return Object.assign(bot, { drain });
 }
 
 export function telegramNotifier(bot: Bot): Notifier {
