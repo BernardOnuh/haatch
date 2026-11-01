@@ -3,13 +3,13 @@ import { serve } from "@hono/node-server";
 import { env, payment } from "./config.js";
 import { createApp } from "./http/server.js";
 import { onTaskPaid } from "./payments/x402.js";
-import { OpenCodeRunner } from "./workers/opencode-runner.js";
+import { createRunner } from "./workers/runner.js";
 import { Orchestrator } from "./orchestrator/orchestrator.js";
 import { Renderer } from "./render/renderer.js";
 import { createBot, telegramNotifier } from "./bot/telegram.js";
 
-const runner = new OpenCodeRunner();
-runner.start(); // boots OpenCode in the background; the web server and bot come up first
+const runner = await createRunner(); // AGENT_ENGINE: opencode (default) or direct
+runner.start(); // OpenCode boots in the background (direct engine is instant); web server and bot come up first
 
 // Free-trial tasks skip payment and go straight to the worker queue.
 const renderer = new Renderer();

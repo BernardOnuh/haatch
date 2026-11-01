@@ -1,7 +1,7 @@
 import type { TaskType } from "../catalog.js";
 import { env } from "../config.js";
 import type { Renderer } from "../render/renderer.js";
-import type { OpenCodeRunner, WorkerOutput } from "../workers/opencode-runner.js";
+import type { AgentRunner, WorkerOutput } from "../workers/runner.js";
 import type { StoredResult } from "../workers/result-schema.js";
 
 /**
@@ -10,7 +10,7 @@ import type { StoredResult } from "../workers/result-schema.js";
  * Used for new tasks, revisions, and scripts/test-worker.ts.
  */
 export async function produce(
-  { runner, renderer }: { runner: OpenCodeRunner; renderer: Renderer },
+  { runner, renderer }: { runner: AgentRunner; renderer: Renderer },
   taskId: string,
   type: TaskType,
   out: WorkerOutput,

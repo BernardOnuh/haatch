@@ -5,7 +5,7 @@
 import { isTaskType } from "../src/catalog.js";
 import { paths } from "../src/config.js";
 import { Renderer } from "../src/render/renderer.js";
-import { OpenCodeRunner } from "../src/workers/opencode-runner.js";
+import { createRunner } from "../src/workers/runner.js";
 import { produce } from "../src/studio/produce.js";
 
 const type = process.argv[2] ?? "flyer";
@@ -17,7 +17,7 @@ Facts: settles in about 5 seconds, fees under $0.01, non-custodial. Site ledgerl
 Audience: designers & developers billing international clients — mostly not crypto-native.
 Vibe: confident, warm, premium-fintech. Admire Wise and Linear. Avoid hype, coins, rockets, "to the moon".`;
 
-const runner = new OpenCodeRunner();
+const runner = await createRunner(); // honours AGENT_ENGINE
 const renderer = new Renderer();
 await runner.start();
 try {

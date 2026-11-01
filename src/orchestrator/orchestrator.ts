@@ -1,6 +1,6 @@
 import { tasks, type Task } from "../db/db.js";
 import type { Renderer } from "../render/renderer.js";
-import type { OpenCodeRunner, WorkerOutput } from "../workers/opencode-runner.js";
+import type { AgentRunner, WorkerOutput } from "../workers/runner.js";
 import type { StoredResult } from "../workers/result-schema.js";
 import { produce } from "../studio/produce.js";
 import type { TaskType } from "../catalog.js";
@@ -27,7 +27,7 @@ export class Orchestrator {
   private sweeper?: NodeJS.Timeout;
 
   constructor(
-    private runner: OpenCodeRunner,
+    private runner: AgentRunner,
     private renderer: Renderer,
     private notifier: Notifier,
     private concurrency: number,

@@ -1,6 +1,7 @@
 # One-click deploy on Render: https://render.com/deploy?repo=https://github.com/BernardOnuh/haatch
 # Free plan = 512 MB and sleeps when idle, so: webhook mode (Telegram wakes it), low-memory mode
-# (one job at a time, no video). PUBLIC_URL comes from Render automatically.
+# (one job at a time, no video), and the direct agent engine (the OpenCode server alone needs
+# ~400 MB). PUBLIC_URL comes from Render automatically.
 services:
   - type: web
     name: haatch
@@ -10,6 +11,8 @@ services:
     envVars:
       - key: TELEGRAM_MODE
         value: webhook
+      - key: AGENT_ENGINE
+        value: direct
       - key: LOW_MEMORY
         value: "true"
       - key: WORKER_CONCURRENCY

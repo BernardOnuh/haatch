@@ -101,6 +101,37 @@ db.exec(`
   );
 `);
 
+// Conversation history for the direct engine (OpenCode keeps its own sessions).
+db.exec(`
+  CREATE TABLE IF NOT EXISTS llm_sessions (
+    id         TEXT PRIMARY KEY,
+    title      TEXT NOT NULL,
+    history    TEXT NOT NULL DEFAULT '[]',
+    updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+  );
+`);
+
+export type LlmTurn = { role: "user" | "model"; text: string };
+
+export const llmSessions = {
+  create(title: string): string {
+    const id = `dir_${randomUUID()}`;
+    db.prepare(`INSERT INTO llm_sessions (id, title) VALUES (?, ?)`).run(id, title);
+    return id;
+  },
+
+  history(id: string): LlmTurn[] | undefined {
+    const row = db.prepare(`SELECT history FROM llm_sessions WHERE id = ?`).get(id) as { history: string } | undefined;
+    return row ? (JSON.parse(row.history) as LlmTurn[]) : undefined;
+  },
+
+  /** Appends a turn pair, keeping the most recent `keep` turns. */
+  append(id: string, turns: LlmTurn[], keep = 24) {
+    const all = [...(this.history(id) ?? []), ...turns].slice(-keep);
+    db.prepare(`UPDATE llm_sessions SET history = ?, updated_at = datetime('now') WHERE id = ?`).run(JSON.stringify(all), id);
+  },
+};
+
 export const chats = {
   session(chatId: number): string | undefined {
     const row = db.prepare(`SELECT opencode_session FROM chats WHERE chat_id = ?`).get(chatId) as

@@ -17,6 +17,13 @@ const Env = z.object({
   PORT: z.coerce.number().default(3000),
   PUBLIC_URL: z.string().url(),
   TELEGRAM_BOT_TOKEN: z.string().min(1),
+  /**
+   * opencode: agents run inside OpenCode (default; needs ~400 MB for the OpenCode server).
+   * direct:   the same agent prompt files are sent straight to the Gemini API — for 512 MB hosts.
+   */
+  AGENT_ENGINE: z.enum(["opencode", "direct"]).default("opencode"),
+  /** Gemini model for the direct engine; defaults to OPENCODE_MODEL's model when it's a Google one. */
+  DIRECT_MODEL: z.string().optional().transform((v) => v || undefined),
   OPENCODE_URL: z.string().optional().transform((v) => v || undefined),
   OPENCODE_MODEL: z.string().regex(/^[^/]+\/.+$/, "format: provider/model"),
   OPENCODE_TIMEOUT_MS: z.coerce.number().default(600_000),

@@ -4,7 +4,7 @@ import { env, paths, payment } from "../config.js";
 import { CATALOG, formatAtomic, isTaskType, listedServices, toAtomic, type TaskType } from "../catalog.js";
 import { chats, taskMessages, tasks, type Task } from "../db/db.js";
 import type { Notifier } from "../orchestrator/orchestrator.js";
-import type { OpenCodeRunner } from "../workers/opencode-runner.js";
+import type { AgentRunner } from "../workers/runner.js";
 import { demoPayer } from "../payments/demo-payer.js";
 import type { StoredResult } from "../workers/result-schema.js";
 
@@ -100,8 +100,8 @@ interface BotDeps {
   startTask: (taskId: string) => void;
   /** Revises a delivered task (agent + re-render) and returns the new result. */
   revise: (taskId: string, feedback: string) => Promise<{ task: Task; result: StoredResult }>;
-  /** OpenCode runner, used for chat. */
-  runner: OpenCodeRunner;
+  /** Agent engine, used for chat. */
+  runner: AgentRunner;
 }
 
 export function createBot({ startTask, revise, runner }: BotDeps) {

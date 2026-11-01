@@ -228,6 +228,12 @@ polling and video rendering), so use a container host with a persistent disk, no
 3. Set the environment variables above, with `PUBLIC_URL` = your host's domain.
 4. Run **one instance per bot token**. Two pollers on the same Telegram token conflict.
 
+**Agent engines.** The agents are defined once, as OpenCode agent files in `agents-workspace/.opencode/agent/`.
+- `AGENT_ENGINE=opencode` (default): they run inside OpenCode. This needs about 400 MB for the OpenCode server, so use 1 GB+ hosts.
+- `AGENT_ENGINE=direct`: the same agent prompts and knowledge base are sent straight to the Gemini API, with session
+  history kept in SQLite. Use it for 512 MB hosts such as Render's free plan. `render.yaml` sets this, plus
+  `TELEGRAM_MODE=webhook` and `LOW_MEMORY=true`.
+
 ## Project structure
 
 ```
