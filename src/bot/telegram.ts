@@ -369,8 +369,13 @@ export function createBot({ startTask, revise, exportHd, runner }: BotDeps) {
       kb.text(`⚡ Pay ${amount} with demo wallet`, `demopay:${task.id}`).row();
     }
     // Telegram only accepts https URLs on buttons; fall back to a plain link in local dev.
-    if (env.PUBLIC_URL.startsWith("https://")) kb.url(demoPayer ? "👛 Pay with my own wallet" : `Pay ${amount}`, payUrl(task));
+    if (env.PUBLIC_URL.startsWith("https://")) kb.url(demoPayer ? "👛 Pay with my own wallet" : `Pay ${amount}`, payUrl(task)).row();
     else text += `\n\n${demoPayer ? "Or pay with your own wallet" : "Pay here"}: ${payUrl(task)}`;
+    // Testnet: point wallet users to free test USDC right where they're asked to pay.
+    if (env.X402_NETWORK === "testnet") {
+      text += `\n\n🚰 No test ${payment.symbol}? Get it free: open the faucet → choose "Celo Sepolia" → paste your wallet address. No gas needed to pay.`;
+      kb.url(`🚰 Get free test ${payment.symbol} (faucet)`, "https://faucet.circle.com");
+    }
     await reply(text, kb.inline_keyboard.length ? { reply_markup: kb, link_preview_options: { is_disabled: true } } : undefined);
   }
 
