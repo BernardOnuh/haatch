@@ -27,13 +27,15 @@ glowing-cube clichés crypto audiences scroll straight past.
 
 | Service | You get | Price |
 |---|---|---|
-| **Web3 promo flyer** | 2 formats (X 1600×900 + feed 1080×1350) as PNG, plus copy, palette, and ready-to-post captions | 3.00 |
-| **Promo video (15s)** | Vertical 1080×1920 MP4 motion graphic, plus a storyboard and music direction | 8.00 |
-| **Web3 campaign ideas** | 30-day launch plan: pillars, post ideas, flyer and video concepts | 1.50 |
-| **Social captions pack** | 10 crypto-native captions for X, Telegram, and LinkedIn | 1.50 |
-| **Brand voice guide** | Voice pillars, tone, word lists, before/after rewrites | 3.00 |
+| **Logo design** | 3 concepts, brand sheet, vector SVG | 1.00 |
+| **X / Twitter kit** | X header, profile picture, and post image built from your logo | 1.00 |
+| **Web3 promo flyer** | 2 formats (X 1600×900 + feed 1080×1350) as PNG, plus copy, palette, and ready-to-post captions | 0.75 |
+| **Promo video (15s)** | Vertical 1080×1920 MP4 motion graphic, plus a storyboard and music direction | 1.50 |
+| **Web3 campaign ideas** | 30-day launch plan: pillars, post ideas, flyer and video concepts | 0.50 |
+| **Social captions pack** | 10 crypto-native captions for X, Telegram, and LinkedIn | 0.25 |
+| **Brand voice guide** | Voice pillars, tone, word lists, before/after rewrites | 0.50 |
 
-Prices are in USA₮ on Celo mainnet, or test USDC on Celo Sepolia. **The first 3 tasks are free.**
+Prices are in USA₮ on Celo mainnet, or test USDC on Celo Sepolia. **The first 3 tasks are free.** Prices are kept under the free USA₮ faucet amount, so verified users can claim and pay immediately.
 
 ## Example output
 

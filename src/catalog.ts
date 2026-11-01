@@ -22,7 +22,7 @@ interface Service {
 export const CATALOG = {
   logo: {
     title: "Logo design",
-    price: "4.00",
+    price: "1.00",
     agent: "web3-designer",
     deliverable: "3 logo concepts as a board, your primary logo on dark and light (PNG), plus the vector SVG and color palette.",
     knowledge: ["core", "sectors", "visual-system", "logo"],
@@ -31,7 +31,7 @@ export const CATALOG = {
   },
   social_kit: {
     title: "X / Twitter kit",
-    price: "3.00",
+    price: "1.00",
     agent: "web3-designer",
     deliverable: "X header banner (1500×500), profile picture, and a launch post image (1600×900), built from your logo and colors.",
     knowledge: ["core", "sectors", "visual-system", "copy", "logo"],
@@ -40,7 +40,7 @@ export const CATALOG = {
   },
   flyer: {
     title: "Web3 promo flyer",
-    price: "3.00",
+    price: "0.75",
     agent: "web3-designer",
     deliverable: "A launch/announcement flyer in 2 formats (X 1600×900 + feed 1080×1350) as PNG, plus copy and rationale.",
     knowledge: ["core", "sectors", "visual-system", "copy"],
@@ -49,7 +49,7 @@ export const CATALOG = {
   },
   promo_video: {
     title: "Promo video (15s)",
-    price: "8.00",
+    price: "1.50",
     agent: "web3-designer",
     deliverable: "A 10–20s vertical motion-graphics promo (1080×1920 MP4) with kinetic type and product moments.",
     knowledge: ["core", "sectors", "visual-system", "motion", "copy"],
@@ -58,7 +58,7 @@ export const CATALOG = {
   },
   content_ideas: {
     title: "Web3 campaign ideas",
-    price: "1.50",
+    price: "0.50",
     agent: "brand-strategist",
     deliverable: "A 30-day campaign plan for your launch: pillars, post ideas, formats, flyer/video concepts.",
     knowledge: ["core", "sectors", "copy"],
@@ -66,7 +66,7 @@ export const CATALOG = {
   },
   social_captions: {
     title: "Social captions pack",
-    price: "1.50",
+    price: "0.25",
     agent: "brand-strategist",
     deliverable: "10 crypto-native captions (X, Telegram, LinkedIn) with hooks and CTAs.",
     knowledge: ["core", "sectors", "copy"],
@@ -74,7 +74,7 @@ export const CATALOG = {
   },
   brand_voice: {
     title: "Brand voice guide",
-    price: "3.00",
+    price: "0.50",
     agent: "brand-strategist",
     deliverable: "Voice pillars, tone spectrum, do/don't word lists, and before/after rewrites.",
     knowledge: ["core", "sectors", "copy"],
