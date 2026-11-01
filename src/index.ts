@@ -68,6 +68,11 @@ if (env.TELEGRAM_MODE === "webhook") {
   void bot.start({ onStart: (me) => console.log(`[bot] @${me.username} polling`) });
 }
 
+if (env.KEEP_AWAKE) {
+  setInterval(() => void fetch(`${env.PUBLIC_URL}/health`).catch(() => {}), 10 * 60_000);
+  console.log("[http] keep-awake: pinging /health every 10 min");
+}
+
 const shutdown = async () => {
   orchestrator.stop();
   if (env.TELEGRAM_MODE === "polling") await bot.stop();

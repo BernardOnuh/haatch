@@ -139,6 +139,8 @@ export function createBot({ startTask, revise, runner }: BotDeps) {
   };
   // Chats with an agent call in flight. One at a time per chat keeps sessions coherent.
   const busy = new Set<number>();
+  // Chat messages that arrived while the agent was still answering; answered together next.
+  const queued = new Map<number, string[]>();
 
   /**
    * Runs slow agent work without blocking the update loop (grammY polls sequentially, so
@@ -232,27 +234,47 @@ export function createBot({ startTask, revise, runner }: BotDeps) {
     }
     const platformName = ctx.me.first_name;
     const userId = ctx.from.id;
+    if (busy.has(chatId)) {
+      // Don't drop messages sent while the agent is answering: answer them right after.
+      const q = queued.get(chatId) ?? [];
+      q.push(text);
+      queued.set(chatId, q);
+      if (q.length === 1) await ctx.reply("👍 Got it, I'll answer that right after this.");
+      return;
+    }
     inBackground(chatId, async () => {
-      const { reply, sessionId } = await runner.chat(chats.session(chatId), text, platformContext(platformName, chatId, userId));
-      chats.setSession(chatId, sessionId);
-
-      // The chat agent can propose a ready-to-start task: [[ORDER:<type>|<brief>]] → "Design it" button.
-      const order = reply.match(/\[\[ORDER:([a-z_]+)\|([\s\S]+?)\]\]/);
-      const shown = reply.replace(/\[\[ORDER:[\s\S]*?\]\]/g, "").trim() || "…";
-      const type = order?.[1];
-      const offer = type && isTaskType(type) && listedServices().some(([t]) => t === type) && order[2].trim().length >= 40;
-      let markup: InlineKeyboard | undefined;
-      if (offer) {
-        pendingOrders.set(chatId, { type, brief: order[2].trim() });
-        const free = trialsLeft(userId) > 0;
-        markup = new InlineKeyboard()
-          .text(`🎨 Start: ${CATALOG[type].title} · ${free ? "free trial" : `${CATALOG[type].price} ${payment.symbol}`}`, `order:${type}`)
-          .row()
-          .text("✏️ Write my own brief", `svc:${type}`);
+      let message = text;
+      for (;;) {
+        await answerChat(chatId, userId, platformName, message);
+        const next = queued.get(chatId);
+        if (!next?.length) break;
+        queued.delete(chatId);
+        message = next.join("\n");
       }
-      await sendRich(chatId, shown, markup);
     });
   });
+
+  /** One chat turn: agent reply, plus a one-tap Start button if the agent proposed a task. */
+  async function answerChat(chatId: number, userId: number, platformName: string, text: string) {
+    const { reply, sessionId } = await runner.chat(chats.session(chatId), text, platformContext(platformName, chatId, userId));
+    chats.setSession(chatId, sessionId);
+
+    // The chat agent can propose a ready-to-start task: [[ORDER:<type>|<brief>]] → "Design it" button.
+    const order = reply.match(/\[\[ORDER:([a-z_]+)\|([\s\S]+?)\]\]/);
+    const shown = reply.replace(/\[\[ORDER:[\s\S]*?\]\]/g, "").trim() || "…";
+    const type = order?.[1];
+    const offer = type && isTaskType(type) && listedServices().some(([t]) => t === type) && order[2].trim().length >= 40;
+    let markup: InlineKeyboard | undefined;
+    if (offer) {
+      pendingOrders.set(chatId, { type, brief: order[2].trim() });
+      const free = trialsLeft(userId) > 0;
+      markup = new InlineKeyboard()
+        .text(`🎨 Start: ${CATALOG[type].title} · ${free ? "free trial" : `${CATALOG[type].price} ${payment.symbol}`}`, `order:${type}`)
+        .row()
+        .text("✏️ Write my own brief", `svc:${type}`);
+    }
+    await sendRich(chatId, shown, markup);
+  }
 
   async function handleBrief(
     chatId: number,

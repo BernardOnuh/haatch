@@ -24,6 +24,8 @@ const Env = z.object({
   AGENT_ENGINE: z.enum(["opencode", "direct"]).default("opencode"),
   /** Gemini model for the direct engine; defaults to OPENCODE_MODEL's model when it's a Google one. */
   DIRECT_MODEL: z.string().optional().transform((v) => v || undefined),
+  /** Faster, cheaper model for conversational replies in the direct engine. */
+  DIRECT_CHAT_MODEL: z.string().default("gemini-flash-lite-latest"),
   OPENCODE_URL: z.string().optional().transform((v) => v || undefined),
   OPENCODE_MODEL: z.string().regex(/^[^/]+\/.+$/, "format: provider/model"),
   OPENCODE_TIMEOUT_MS: z.coerce.number().default(600_000),
@@ -65,6 +67,11 @@ const Env = z.object({
    * webhook: Telegram POSTs updates to PUBLIC_URL — required on hosts that sleep when idle (Render free).
    */
   TELEGRAM_MODE: z.enum(["polling", "webhook"]).default("polling"),
+  /**
+   * Ping our own public URL every 10 minutes so hosts that sleep after 15 idle minutes
+   * (Render free) stay awake — no 30–60s cold start on the first Telegram message.
+   */
+  KEEP_AWAKE: z.stringbool().default(false),
   /** Small hosts (Render free, 512 MB): one job at a time, Chrome closed between renders, no video. */
   LOW_MEMORY: z.stringbool().default(false),
   AGENT_ID: z.string().optional(),

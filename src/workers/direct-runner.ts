@@ -18,7 +18,7 @@ export class DirectRunner extends BaseRunner {
 
   start() {
     if (!googleApiKey()) console.error("[direct] GEMINI_API_KEY is not set — agent calls will fail.");
-    console.log(`[direct] agents run via the Gemini API (${this.model}); prompts from ${path.join(paths.agentsWorkspace, ".opencode/agent")}`);
+    console.log(`[direct] agents run via the Gemini API (${this.model}, chat: ${env.DIRECT_CHAT_MODEL}); prompts from ${path.join(paths.agentsWorkspace, ".opencode/agent")}`);
   }
 
   stop() {}
@@ -43,7 +43,9 @@ export class DirectRunner extends BaseRunner {
       },
     };
 
-    const reply = await withTimeout(this.generate(body), env.OPENCODE_TIMEOUT_MS);
+    // Chat needs speed (a person is waiting); design and copy tasks need the stronger model.
+    const model = agent === CHAT_AGENT ? env.DIRECT_CHAT_MODEL : this.model;
+    const reply = await withTimeout(this.generate(model, body), agent === CHAT_AGENT ? 90_000 : env.OPENCODE_TIMEOUT_MS);
     llmSessions.append(sessionId, [
       { role: "user", text },
       { role: "model", text: reply },
@@ -52,10 +54,10 @@ export class DirectRunner extends BaseRunner {
   }
 
   /** One Gemini call, retrying once on rate limits / overload. */
-  private async generate(body: unknown, attempt = 1): Promise<string> {
+  private async generate(model: string, body: unknown, attempt = 1): Promise<string> {
     const key = googleApiKey();
     if (!key) throw new Error("ProviderAuthError: GEMINI_API_KEY is missing");
-    const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${this.model}:generateContent`, {
+    const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`, {
       method: "POST",
       headers: { "content-type": "application/json", "x-goog-api-key": key },
       body: JSON.stringify(body),
@@ -63,7 +65,7 @@ export class DirectRunner extends BaseRunner {
     } as RequestInit);
     if ((res.status === 429 || res.status === 503) && attempt < 2) {
       await new Promise((r) => setTimeout(r, 4_000));
-      return this.generate(body, attempt + 1);
+      return this.generate(model, body, attempt + 1);
     }
     const json = (await res.json().catch(() => ({}))) as GeminiResponse;
     if (!res.ok) throw new Error(`gemini ${res.status}: ${json.error?.message ?? res.statusText}`);
