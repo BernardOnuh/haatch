@@ -17,21 +17,21 @@ mkdirSync(VO_DIR, { recursive: true });
 // ── 1. Voiceover ────────────────────────────────────────────────────────────────
 // `gap` = silence before the line (seconds). Short gaps keep the pace; the long one is the open loop.
 const LINES = [
-  { id: "h1", gap: 0.35, text: "Your launch is already late." },
-  { id: "p1", gap: 0.35, text: "Nine days on a logo." },
-  { id: "p2", gap: 0.15, text: "Three weeks on a brand." },
-  { id: "p3", gap: 0.2, text: "Meanwhile..." },
-  { id: "t1", gap: 0.1, text: "someone else shipped." },
-  { id: "t2", gap: 0.35, text: "Your users? Gone." },
-  { id: "o1", gap: 1.1, text: "What if it took... minutes?" },
+  { id: "h1", gap: 0.4, text: "Your launch is already late." },
+  { id: "p1", gap: 0.55, text: "Nine days on a logo." },
+  { id: "p2", gap: 0.3, text: "Three weeks on a brand." },
+  { id: "p3", gap: 0.45, text: "Meanwhile..." },
+  { id: "t1", gap: 0.25, text: "someone else shipped." },
+  { id: "t2", gap: 0.5, text: "Your users? Gone." },
+  { id: "o1", gap: 1.3, text: "What if it took... minutes?" },
   { id: "r1", gap: 1.0, text: "This is haatch." },
-  { id: "r2", gap: 0.25, text: "Tell it what you're building." },
-  { id: "r3", gap: 0.2, text: "AI agents trained on what actually works in crypto design your logo, your launch flyers, your X kit." },
-  { id: "r4", gap: 0.25, text: "Delivered in minutes. Paid onchain, on Celo." },
-  { id: "c1", gap: 0.5, text: "Nine days..." },
-  { id: "c2", gap: 0.2, text: "or three minutes." },
-  { id: "f1", gap: 0.45, text: "The market doesn't wait. Neither should you." },
-  { id: "f2", gap: 0.55, text: "Ship today." },
+  { id: "r2", gap: 0.35, text: "Tell it what you're building." },
+  { id: "r3", gap: 0.3, text: "AI agents — trained on what actually works in crypto — design your logo, your launch flyers, your X kit." },
+  { id: "r4", gap: 0.35, text: "Delivered in minutes. Paid onchain, on Celo." },
+  { id: "c1", gap: 0.6, text: "Nine days..." },
+  { id: "c2", gap: 0.3, text: "or three minutes." },
+  { id: "f1", gap: 0.55, text: "The market doesn't wait. Neither should you." },
+  { id: "f2", gap: 0.7, text: "Ship today." },
 ] as const;
 
 const ELEVEN_KEY = process.env.ELEVENLABS_API_KEY;
@@ -42,8 +42,11 @@ console.log(`voiceover engine: ${engine}${ELEVEN_KEY ? ` (voice ${VOICE_ID})` : 
 const duration = (file: string) =>
   Number(execFileSync("ffprobe", ["-v", "error", "-show_entries", "format=duration", "-of", "csv=p=0", file]).toString());
 
-async function voice(id: string, text: string): Promise<string> {
-  const key = createHash("sha1").update(`${engine}|${VOICE_ID}|${text}`).digest("hex").slice(0, 10);
+/** Calmer settings read as a confident human; high "style" sounds over-acted and synthetic. */
+const VOICE_SETTINGS = { stability: 0.5, similarity_boost: 0.8, style: 0.25, use_speaker_boost: true, speed: 0.96 };
+
+async function voice(id: string, text: string, previous?: string, next?: string): Promise<string> {
+  const key = createHash("sha1").update(`${engine}|${VOICE_ID}|${JSON.stringify(VOICE_SETTINGS)}|${previous}|${text}|${next}`).digest("hex").slice(0, 10);
   const wav = path.join(VO_DIR, `${id}-${key}.wav`);
   if (existsSync(wav)) return wav; // cached per engine + voice + text
   if (ELEVEN_KEY) {
@@ -53,8 +56,10 @@ async function voice(id: string, text: string): Promise<string> {
       body: JSON.stringify({
         text,
         model_id: "eleven_multilingual_v2",
-        // Lower stability + higher style = more dramatic, varied delivery.
-        voice_settings: { stability: 0.3, similarity_boost: 0.8, style: 0.65, use_speaker_boost: true },
+        voice_settings: VOICE_SETTINGS,
+        // Lines are generated separately; giving the neighbours keeps intonation flowing like one take.
+        ...(previous ? { previous_text: previous } : {}),
+        ...(next ? { next_text: next } : {}),
       }),
     });
     if (!res.ok) throw new Error(`ElevenLabs ${res.status}: ${await res.text()}`);
@@ -71,9 +76,9 @@ async function voice(id: string, text: string): Promise<string> {
 
 const vo: { id: string; file: string; start: number; dur: number; end: number }[] = [];
 let t = 0;
-for (const line of LINES) {
+for (const [i, line] of LINES.entries()) {
   t += line.gap;
-  const file = await voice(line.id, line.text);
+  const file = await voice(line.id, line.text, LINES[i - 1]?.text, LINES[i + 1]?.text);
   const dur = duration(file);
   vo.push({ id: line.id, file, start: t, dur, end: t + dur });
   t += dur;
@@ -341,7 +346,7 @@ execFileSync("ffmpeg", [
 
 const inputs = ["-i", silent, "-i", bed, ...vo.flatMap((v) => ["-i", v.file])];
 const voChains = vo.map((v, i) => `[${i + 2}:a]adelay=${Math.round(v.start * 1000)}|${Math.round(v.start * 1000)},apad[v${i}]`).join(";");
-const voMix = `${vo.map((_, i) => `[v${i}]`).join("")}amix=inputs=${vo.length}:normalize=0:duration=longest,volume=1.7,acompressor=threshold=0.1:ratio=3:attack=5:release=120[vo]`;
+const voMix = `${vo.map((_, i) => `[v${i}]`).join("")}amix=inputs=${vo.length}:normalize=0:duration=longest,highpass=f=75,equalizer=f=3200:t=q:w=1.2:g=2,acompressor=threshold=0.1:ratio=3:attack=8:release=150,aecho=0.85:0.6:28|47:0.07|0.04,volume=1.7[vo]`;
 const filter = `${voChains};${voMix};[vo]asplit[vo1][vo2];[1:a][vo1]sidechaincompress=threshold=0.04:ratio=5:attack=15:release=300[duck];[duck][vo2]amix=inputs=2:normalize=0,loudnorm=I=-14:TP=-1.2[a]`;
 const final = path.join(OUT, "haatch-demo.mp4");
 execFileSync("ffmpeg", [
