@@ -11,7 +11,7 @@ import { produce } from "../src/studio/produce.js";
 const type = process.argv[2] ?? "flyer";
 if (!isTaskType(type)) throw new Error(`unknown task type ${type}`);
 
-const brief = `Project: Ledgerly — stablecoin invoicing + instant payouts for freelancers in Nigeria and Kenya, live on Celo mainnet.
+const brief = process.env.BRIEF ?? `Project: Ledgerly — stablecoin invoicing + instant payouts for freelancers in Nigeria and Kenya, live on Celo mainnet.
 Announcing: mainnet launch + cash-out to mobile money (M-Pesa) this Thursday.
 Facts: settles in about 5 seconds, fees under $0.01, non-custodial. Site ledgerly.app, X @ledgerlyapp.
 Audience: designers & developers billing international clients — mostly not crypto-native.

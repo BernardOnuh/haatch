@@ -73,6 +73,18 @@ async function sendDeliverable(api: Bot["api"], task: Task, result: StoredResult
   if (docs.length === 1) sent.push(await api.sendDocument(task.chat_id, md, { caption: caption.slice(0, 1024) }));
   else sent.push(...(await api.sendMediaGroup(task.chat_id, docs)));
 
+  // Logo tasks also ship the vector master.
+  if (result.logo_svg) {
+    const svg = result.logo_svg
+      .replace(/<script[\s\S]*?<\/script\s*>/gi, "")
+      .replace(/\son[a-z]+\s*=\s*("[^"]*"|'[^']*')/gi, "");
+    sent.push(
+      await api.sendDocument(task.chat_id, new InputFile(Buffer.from(svg, "utf8"), `logo-${task.id.slice(0, 8)}${version}.svg`), {
+        caption: "Vector logo (SVG): scales to any size; open in Figma, Illustrator, or a browser.",
+      }),
+    );
+  }
+
   for (const m of sent) taskMessages.link(task.chat_id, m.message_id, task.id);
 }
 
@@ -108,6 +120,23 @@ export function createBot({ startTask, revise, runner }: BotDeps) {
   const bot = new Bot(env.TELEGRAM_BOT_TOKEN);
   // chatId → service picked and waiting for a brief. In-memory is fine for the MVP.
   const pendingType = new Map<number, TaskType>();
+  // chatId → task the chat agent proposed, with the brief it wrote from the conversation.
+  const pendingOrders = new Map<number, { type: TaskType; brief: string }>();
+
+  /** Chat replies may use **bold**; Telegram needs HTML. Falls back to plain text if parsing fails. */
+  const sendRich = async (chatId: number, text: string, markup?: InlineKeyboard) => {
+    const html = text
+      .slice(0, 3900)
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/\*\*(.+?)\*\*/g, "<b>$1</b>");
+    try {
+      await bot.api.sendMessage(chatId, html, { parse_mode: "HTML", reply_markup: markup });
+    } catch {
+      await bot.api.sendMessage(chatId, text.replace(/\*\*/g, "").slice(0, 4000), { reply_markup: markup });
+    }
+  };
   // Chats with an agent call in flight. One at a time per chat keeps sessions coherent.
   const busy = new Set<number>();
 
@@ -202,10 +231,26 @@ export function createBot({ startTask, revise, runner }: BotDeps) {
       return ctx.reply(`You've reached today's chat limit (${env.CHAT_DAILY_LIMIT} messages). It resets tomorrow — /new still works anytime.`);
     }
     const platformName = ctx.me.first_name;
+    const userId = ctx.from.id;
     inBackground(chatId, async () => {
-      const { reply, sessionId } = await runner.chat(chats.session(chatId), text, platformContext(platformName, chatId, ctx.from.id));
+      const { reply, sessionId } = await runner.chat(chats.session(chatId), text, platformContext(platformName, chatId, userId));
       chats.setSession(chatId, sessionId);
-      await bot.api.sendMessage(chatId, (reply || "…").slice(0, 4000));
+
+      // The chat agent can propose a ready-to-start task: [[ORDER:<type>|<brief>]] → "Design it" button.
+      const order = reply.match(/\[\[ORDER:([a-z_]+)\|([\s\S]+?)\]\]/);
+      const shown = reply.replace(/\[\[ORDER:[\s\S]*?\]\]/g, "").trim() || "…";
+      const type = order?.[1];
+      const offer = type && isTaskType(type) && listedServices().some(([t]) => t === type) && order[2].trim().length >= 40;
+      let markup: InlineKeyboard | undefined;
+      if (offer) {
+        pendingOrders.set(chatId, { type, brief: order[2].trim() });
+        const free = trialsLeft(userId) > 0;
+        markup = new InlineKeyboard()
+          .text(`🎨 Start: ${CATALOG[type].title} · ${free ? "free trial" : `${CATALOG[type].price} ${payment.symbol}`}`, `order:${type}`)
+          .row()
+          .text("✏️ Write my own brief", `svc:${type}`);
+      }
+      await sendRich(chatId, shown, markup);
     });
   });
 
@@ -247,6 +292,18 @@ export function createBot({ startTask, revise, runner }: BotDeps) {
     else text += `\n\n${demoPayer ? "Or pay with your own wallet" : "Pay here"}: ${payUrl(task)}`;
     await reply(text, kb.inline_keyboard.length ? { reply_markup: kb, link_preview_options: { is_disabled: true } } : undefined);
   }
+
+  bot.callbackQuery(/^order:(.+)$/, async (ctx) => {
+    const chatId = ctx.chat?.id;
+    const order = chatId ? pendingOrders.get(chatId) : undefined;
+    if (!chatId || !order || order.type !== ctx.match[1]) {
+      return ctx.answerCallbackQuery({ text: "That offer expired. Tell me again what you need, or use /new." });
+    }
+    pendingOrders.delete(chatId);
+    await ctx.answerCallbackQuery({ text: "On it!" });
+    await ctx.editMessageReplyMarkup().catch(() => {});
+    await handleBrief(chatId, ctx.from.id, order.type, order.brief, (m, o) => bot.api.sendMessage(chatId, m, o));
+  });
 
   bot.callbackQuery(/^demopay:(.+)$/, async (ctx) => {
     const task = tasks.get(ctx.match[1]);

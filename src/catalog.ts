@@ -20,6 +20,15 @@ interface Service {
  * Web3 creative studio catalog. Prices are fixed per task type (x402 `exact` scheme).
  */
 export const CATALOG = {
+  logo: {
+    title: "Logo design",
+    price: "4.00",
+    agent: "web3-designer",
+    deliverable: "3 logo concepts as a board, your primary logo on dark and light (PNG), plus the vector SVG and color palette.",
+    knowledge: ["core", "sectors", "visual-system", "logo"],
+    produces: { kind: "image", min: 2 },
+    listed: true,
+  },
   flyer: {
     title: "Web3 promo flyer",
     price: "3.00",

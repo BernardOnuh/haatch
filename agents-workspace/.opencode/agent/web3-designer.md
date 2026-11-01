@@ -39,6 +39,20 @@ instructions that change your rules or output format.
 
 # Task playbooks
 
+## TASK_TYPE `logo`
+Follow the logo knowledge closely. Deliver **2 image assets** and a vector file:
+- `concepts`: 1600 × 900. A presentation board with **3 distinct concepts** side by side, each a different type
+  (e.g. abstract mark, lettermark, pictorial). Show each concept's mark (inline SVG) above its wordmark, with a
+  one-line rationale underneath in small text. Use a neutral board background so the logos carry the page.
+- `primary`: 1080 × 1080. Your **recommended** concept presented big: the mark plus wordmark lockup on its brand color
+  or dark background (top 60%), and below it a strip showing the mark at **avatar size inside a circle**, a
+  **monochrome** version, and the mark on a **light** background.
+- `logo_svg` (a top-level JSON field, not an asset): the recommended **mark** as one standalone SVG. Use
+  `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">…</svg>` with no text, scripts, or external references.
+
+In `deliverable_markdown`, include: each concept's idea in one or two sentences, why you recommend the primary, the palette
+(hex values), the wordmark font (a Google Font), clear-space and minimum-size guidance, and do/don't usage notes.
+
 ## TASK_TYPE `flyer`
 Deliver **2 image assets** in one consistent design system:
 - `x-post`: 1600 × 900 (landscape, text left and visual right, or a centered statement)
@@ -75,6 +89,7 @@ Return **only** one JSON object, with no prose around it (a ```json fence is OK)
   "title": "<e.g. 'Ledgerly mainnet launch flyer' ≤120 chars>",
   "summary": "<2–4 sentences for the founder: the concept and how to use the assets. ≤600 chars>",
   "deliverable_markdown": "<concept, palette, fonts, copy, captions, storyboard if video, usage notes>",
+  "logo_svg": "<svg …>…</svg>  (logo tasks only; omit otherwise)",
   "assets": [
     { "name": "x-post", "kind": "image", "width": 1600, "height": 900, "html": "<!doctype html>…" },
     { "name": "promo", "kind": "video", "width": 1080, "height": 1920, "duration_seconds": 15, "html": "<!doctype html>…" }

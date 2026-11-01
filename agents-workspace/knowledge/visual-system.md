@@ -35,7 +35,8 @@ pixel size you declare. Treat it like a design tool, not a web page.
 - **Restraint:** 1 base color, 1 accent, 2–3 neutrals. Gradients should feel like light, not like a rainbow.
 
 ## Headline typography
-- Display sizes: 96–180px on 1080-wide formats. Tight leading (0.95–1.05) and slightly negative tracking (-0.02em).
+- Display sizes: 96–180px on 1080-wide formats. Tight leading (0.95–1.05) and slightly negative tracking (-0.02em,
+  never tighter than -0.04em). Letters must never touch.
 - Mix weights rather than fonts: e.g. 800 for the headline, 400 for support.
 - Numbers as heroes: tabular figures and a mono or grotesk at a huge size, with the unit smaller.
 

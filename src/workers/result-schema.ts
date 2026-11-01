@@ -25,6 +25,12 @@ export const WorkerResult = z.object({
   summary: z.string().min(1).max(600),
   deliverable_markdown: z.string().min(200),
   assets: z.array(DesignAsset).max(4).default([]),
+  /** Logo tasks: the primary mark as a standalone SVG (delivered as a .svg file). */
+  logo_svg: z
+    .string()
+    .max(50_000)
+    .refine((s) => /^\s*<svg[\s>]/i.test(s) && /<\/svg>\s*$/i.test(s), "must be a single <svg>…</svg> element")
+    .optional(),
   assumptions: z.array(z.string()).max(10).default([]),
   follow_up_questions: z.array(z.string()).max(5).default([]),
   quality_check: z.object({

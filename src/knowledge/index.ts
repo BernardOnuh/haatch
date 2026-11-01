@@ -9,7 +9,7 @@ import { paths } from "../config.js";
  * opinionated playbook instead of generic "blockchain" defaults. Read per call (files are
  * small) so edits to the knowledge base apply without restarting.
  */
-export type KnowledgeFile = "core" | "sectors" | "visual-system" | "motion" | "copy";
+export type KnowledgeFile = "core" | "sectors" | "visual-system" | "motion" | "copy" | "logo";
 
 export function loadKnowledge(files: readonly KnowledgeFile[]): string {
   const sections = files.map((f) => readFileSync(path.join(paths.agentsWorkspace, "knowledge", `${f}.md`), "utf8").trim());
