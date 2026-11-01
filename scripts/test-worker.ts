@@ -22,13 +22,14 @@ const renderer = new Renderer();
 await runner.start();
 try {
   const started = Date.now();
-  const out = await runner.run({ taskId: `local-${type}`, type, brief });
+  const taskId = process.env.TASK_ID ?? `local-${type}`;
+  const out = await runner.run({ taskId, type, brief });
   console.log(`agent done in ${((Date.now() - started) / 1000).toFixed(0)}s · session ${out.sessionId} · cost $${out.costUsd.toFixed(4)}`);
   console.log(JSON.stringify({ ...out.result, deliverable_markdown: undefined, assets: out.result.assets.map((a) => ({ ...a, html: `${a.html.length} chars` })) }, null, 2));
   console.log("\n" + out.result.deliverable_markdown);
   if (out.result.assets.length) {
     // Same path as production: layout QA → agent fix round if needed → render.
-    const result = await produce({ runner, renderer }, `local-${type}`, type, out, 1);
+    const result = await produce({ runner, renderer }, taskId, type, out, 1);
     console.log("\nrendered:", (result.rendered ?? []).map((r) => `${paths.assets}/${r.file}`));
     console.log("quality notes:", result.quality_check.notes || "(none)");
   }

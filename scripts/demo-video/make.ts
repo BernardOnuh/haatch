@@ -119,8 +119,8 @@ console.log(`timeline: hook→${B.toFixed(1)} pain→${C.toFixed(1)} truth→${D
 // ── 2. Visuals (HTML/CSS timeline → MP4 with haatch's renderer) ─────────────────
 const dataUri = (f: string) => `data:image/png;base64,${readFileSync(f).toString("base64")}`;
 const IMG = {
-  concepts: dataUri("data/assets/local-logo/concepts.png"),
-  primary: dataUri("data/assets/local-logo/primary.png"),
+  concepts: dataUri("data/assets/local-logo-v2/concepts-v2.png"),
+  primary: dataUri("data/assets/local-logo-v2/primary-v2.png"),
   flyer: dataUri("docs/examples/flyer-x-post.png"),
 };
 const MARK = readFileSync("brand/haatch-mark.svg", "utf8");
@@ -343,29 +343,29 @@ console.log(`video rendered in ${((Date.now() - started) / 1000).toFixed(0)}s`);
 
 // ── 3. Sound design (synthesized) + mix ─────────────────────────────────────────
 const g = (a: number, b: number) => `gte(t,${a.toFixed(3)})*lt(t,${b.toFixed(3)})`;
-const heartbeats = Array.from({ length: Math.floor((D - B) / 0.85) }, (_, i) => B + i * 0.85);
-const heart = heartbeats
-  .map((s) => `0.55*exp(-18*(t-${s.toFixed(3)}))*sin(2*PI*48*(t-${s.toFixed(3)}))*gte(t,${s.toFixed(3)})+0.35*exp(-18*(t-${(s + 0.22).toFixed(3)}))*sin(2*PI*44*(t-${(s + 0.22).toFixed(3)}))*gte(t,${(s + 0.22).toFixed(3)})`)
-  .join("+");
-const drone = `(0.07*sin(2*PI*55*t)+0.05*sin(2*PI*58.3*t))*${g(0, D)}`;
-const tick = `0.18*exp(-70*mod(t,0.5))*sin(2*PI*2400*t)*${g(L.p3.start, D)}`;
-const riser = `0.22*pow((t-${L.o1.start.toFixed(3)})/${(DROP - L.o1.start).toFixed(3)},2)*(sin(2*PI*(200+900*(t-${L.o1.start.toFixed(3)})/${(DROP - L.o1.start).toFixed(3)})*t)+0.6*(random(0)*2-1))*${g(L.o1.start, DROP - 0.12)}`;
-const hitsExpr = hits
-  .map((s) => `(0.85*exp(-7*(t-${s.toFixed(3)}))*sin(2*PI*(52-18*(t-${s.toFixed(3)}))*(t-${s.toFixed(3)}))+0.35*exp(-25*(t-${s.toFixed(3)}))*(random(0)*2-1))*gte(t,${s.toFixed(3)})`)
-  .join("+");
+// Clean, noise-free score: every element is a pure tone, so nothing hisses or clicks in the pauses.
+const drone = `0.045*(sin(2*PI*55*t)+0.6*sin(2*PI*82.41*t))*(0.7+0.3*sin(2*PI*0.18*t))*${g(0.2, D)}`;
+const riserLen = (DROP - L.o1.start).toFixed(3);
+const riser = `0.10*pow((t-${L.o1.start.toFixed(3)})/${riserLen},2)*sin(2*PI*(110+330*(t-${L.o1.start.toFixed(3)})/${riserLen})*t)*${g(L.o1.start, DROP - 0.08)}`;
+/** Deep sine thump (no noise) for slams; the reveal drop is bigger. */
+const thump = (s: number, amp: number) =>
+  `${amp}*exp(-8*(t-${s.toFixed(3)}))*sin(2*PI*(56-22*(t-${s.toFixed(3)}))*(t-${s.toFixed(3)}))*gte(t,${s.toFixed(3)})`;
+const hitsExpr = hits.map((s) => thump(s, Math.abs(s - DROP) < 0.01 ? 0.95 : 0.42)).join("+");
 const beat = 60 / 128;
-const drive = `(0.42*exp(-10*mod(t-${DROP.toFixed(3)},${beat.toFixed(4)}))*sin(2*PI*(58-30*mod(t-${DROP.toFixed(3)},${beat.toFixed(4)}))*mod(t-${DROP.toFixed(3)},${beat.toFixed(4)})) + 0.06*exp(-40*mod(t-${(DROP + beat / 2).toFixed(3)},${beat.toFixed(4)}))*(random(0)*2-1) + 0.045*(sin(2*PI*110*t)+sin(2*PI*164.81*t)+sin(2*PI*220*t)+sin(2*PI*277.18*t))*(0.6+0.4*sin(2*PI*${(1 / beat).toFixed(3)}*t)))*${g(DROP + 0.05, END + 0.2)}`;
-const outro = `0.05*(sin(2*PI*110*t)+sin(2*PI*164.81*t)+sin(2*PI*277.18*t))*${g(END, T)}`;
+const since = `(t-${DROP.toFixed(3)})`;
+const drive = `(0.22*exp(-11*mod(${since},${beat.toFixed(4)}))*sin(2*PI*(56-26*mod(${since},${beat.toFixed(4)}))*mod(${since},${beat.toFixed(4)})) + 0.03*(sin(2*PI*110*t)+sin(2*PI*164.81*t)+sin(2*PI*220*t)+sin(2*PI*277.18*t))*(0.75+0.25*sin(2*PI*0.25*t)))*${g(DROP + 0.05, END + 0.2)}`;
+const outro = `0.035*(sin(2*PI*110*t)+sin(2*PI*164.81*t)+sin(2*PI*277.18*t))*${g(END, T)}`;
 const bed = path.join(OUT, "bed.wav");
 execFileSync("ffmpeg", [
   "-y", "-loglevel", "error",
-  "-f", "lavfi", "-i", `aevalsrc='${[drone, heart, tick, riser, hitsExpr, drive, outro].join("+")}':s=44100:d=${T}`,
+  "-f", "lavfi", "-i", `aevalsrc='${[drone, riser, hitsExpr, drive, outro].join("+")}':s=44100:d=${T}`,
   "-af", `alimiter=limit=0.9,afade=t=out:st=${T - 2}:d=2`,
   bed,
 ]);
 
 const inputs = ["-i", silent, "-i", bed, ...vo.flatMap((v) => ["-i", v.file])];
-const voChains = vo.map((v, i) => `[${i + 2}:a]${TONE_FX[v.tone]},adelay=${Math.round(v.start * 1000)}|${Math.round(v.start * 1000)},apad[v${i}]`).join(";");
+// Short fades on every line so trimmed clip edges can never click.
+const voChains = vo.map((v, i) => `[${i + 2}:a]afade=t=in:d=0.015,afade=t=out:st=${Math.max(0, v.dur - 0.05).toFixed(3)}:d=0.05,${TONE_FX[v.tone]},adelay=${Math.round(v.start * 1000)}|${Math.round(v.start * 1000)},apad[v${i}]`).join(";");
 const voMix = `${vo.map((_, i) => `[v${i}]`).join("")}amix=inputs=${vo.length}:normalize=0:duration=longest,highpass=f=75,equalizer=f=3200:t=q:w=1.2:g=2,acompressor=threshold=0.1:ratio=3:attack=8:release=150,aecho=0.85:0.6:28|47:0.07|0.04,volume=1.7[vo]`;
 const filter = `${voChains};${voMix};[vo]asplit[vo1][vo2];[1:a][vo1]sidechaincompress=threshold=0.04:ratio=5:attack=15:release=300[duck];[duck][vo2]amix=inputs=2:normalize=0,loudnorm=I=-14:TP=-1.2[a]`;
 const final = path.join(OUT, "haatch-demo.mp4");
