@@ -43,8 +43,15 @@ const Env = z.object({
   DEMO_PAYER_PRIVATE_KEY: z
     .string()
     .optional()
-    .transform((v) => v || undefined)
-    .pipe(z.string().regex(/^0x[a-fA-F0-9]{64}$/, "must be a 0x-prefixed private key").optional()),
+    .transform((v) => {
+      // Forgive copy-paste damage from host dashboards: spaces, quotes, missing 0x.
+      const k = (v ?? "").trim().replace(/^['"]|['"]$/g, "");
+      if (!k) return undefined;
+      const key = /^[a-fA-F0-9]{64}$/.test(k) ? `0x${k}` : k;
+      if (/^0x[a-fA-F0-9]{64}$/.test(key)) return key;
+      console.warn("[config] DEMO_PAYER_PRIVATE_KEY is not a valid private key — demo wallet payments are disabled.");
+      return undefined;
+    }),
   DEMO_PAYS_PER_USER_DAILY: z.coerce.number().int().min(0).default(3),
   /**
    * polling: the bot asks Telegram for updates (best for always-on machines).
