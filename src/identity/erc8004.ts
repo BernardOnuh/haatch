@@ -33,11 +33,11 @@ export function agentCard() {
   const registry = IDENTITY_REGISTRY[payment.network];
   return {
     type: "https://eips.ethereum.org/EIPS/eip-8004#registration-v1",
-    name: "Startup Task Agents",
+    name: "haatch",
     description:
-      "Hire AI agents for entry-level startup work. Branding tasks (brand voice, social captions, content " +
-      `calendars, visual briefs, brand asset copy) paid per task in ${payment.symbol} on Celo via x402 and ` +
-      "executed by specialized OpenCode worker agents.",
+      "On-demand web3 creative studio. AI design agents (OpenCode) trained on a web3 knowledge base create promo " +
+      "flyers, motion videos, and campaign copy for blockchain projects, paid per task in " +
+      `${payment.symbol} on Celo via x402. Telegram: @haatchedbot.`,
     image: `${env.PUBLIC_URL}/logo.png`,
     services: [
       { name: "web", endpoint: env.PUBLIC_URL },

@@ -94,6 +94,8 @@ export function createApp() {
     return c.html(payPage(task));
   });
   app.get("/pay.js", serveStatic({ path: "./public/pay.js" }));
+  // Logo referenced by the ERC-8004 registration file.
+  app.get("/logo.png", serveStatic({ path: "./brand/haatch-avatar.png" }));
 
   // Rendered assets. The task UUID in the path acts as the access capability (MVP).
   app.get("/assets/:taskId/:file", async (c) => {
