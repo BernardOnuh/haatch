@@ -1,10 +1,10 @@
 import path from "node:path";
-import { Bot, InlineKeyboard, InputFile, InputMediaBuilder } from "grammy";
+import { Bot, InlineKeyboard, InputFile, InputMediaBuilder, type Context } from "grammy";
 import { env, paths, payment } from "../config.js";
 import { CATALOG, formatAtomic, isTaskType, listedServices, toAtomic, type TaskType } from "../catalog.js";
 import { chats, taskMessages, tasks, type Task } from "../db/db.js";
 import type { Notifier } from "../orchestrator/orchestrator.js";
-import type { AgentRunner } from "../workers/runner.js";
+import type { AgentRunner, ImageInput } from "../workers/runner.js";
 import { demoPayer } from "../payments/demo-payer.js";
 import type { StoredResult } from "../workers/result-schema.js";
 
@@ -156,7 +156,7 @@ export function createBot({ startTask, revise, exportHd, runner }: BotDeps) {
   // Chats with an agent call in flight. One at a time per chat keeps sessions coherent.
   const busy = new Set<number>();
   // Chat messages that arrived while the agent was still answering; answered together next.
-  const queued = new Map<number, { text: string; taskId?: string }[]>();
+  const queued = new Map<number, { text: string; taskId?: string; images: ImageInput[] }[]>();
 
   /**
    * Runs slow agent work without blocking the update loop (grammY polls sequentially, so
@@ -230,28 +230,53 @@ export function createBot({ startTask, revise, exportHd, runner }: BotDeps) {
     });
   });
 
-  bot.on("message:text", async (ctx) => {
-    const text = ctx.message.text.trim();
-    const chatId = ctx.chat.id;
+  bot.on("message:text", (ctx) => onIncoming(ctx, ctx.message.text.trim(), []));
 
-    // 1. A brief for the service they just picked.
+  // Photos and image files (with or without a caption): the AI sees them, e.g. an existing
+  // logo, a screenshot, or a design they like.
+  bot.on(["message:photo", "message:document"], async (ctx) => {
+    const doc = ctx.message.document;
+    if (doc && !doc.mime_type?.startsWith("image/")) {
+      return ctx.reply("I can read images (PNG, JPG, WebP). For other files, paste the text here.");
+    }
+    if (doc?.mime_type === "image/svg+xml") return ctx.reply("Please send that as a PNG or JPG — I can't read SVG uploads yet.");
+    if ((doc?.file_size ?? 0) > 15_000_000) return ctx.reply("That image is too large — please send one under 15 MB.");
+    try {
+      const file = await ctx.getFile(); // photo: Telegram returns the largest size
+      const res = await fetch(`https://api.telegram.org/file/bot${env.TELEGRAM_BOT_TOKEN}/${file.file_path}`);
+      if (!res.ok) throw new Error(`download ${res.status}`);
+      const base64 = Buffer.from(await res.arrayBuffer()).toString("base64");
+      const mime = doc?.mime_type ?? "image/jpeg";
+      const caption = ctx.message.caption?.trim() || "(The founder sent this image without a caption. Describe what you see briefly and ask how it relates to what they need.)";
+      await onIncoming(ctx, caption, [{ mime, base64 }]);
+    } catch (e) {
+      console.error("[bot] image download failed:", e);
+      await ctx.reply("I couldn't open that image — please try sending it again.");
+    }
+  });
+
+  /** Routes an incoming text (+ optional images) to a brief, or to the chat agent. */
+  async function onIncoming(ctx: Context, text: string, images: ImageInput[]) {
+    const chatId = ctx.chat!.id;
+    const userId = ctx.from!.id;
+
+    // 1. A brief for the service they just picked (images go to the chat agent instead).
     const type = pendingType.get(chatId);
-    if (type) return handleBrief(ctx.chat.id, ctx.from.id, type, text, (m, o) => ctx.reply(m, o));
+    if (type && !images.length) return handleBrief(chatId, userId, type, text, (m, o) => ctx.reply(m, o));
 
     // 2. Everything else → the chat agent. A reply to a delivered file carries that task as
     //    context, and the agent decides: answer, revise, export in 4K, or start new work.
-    const repliedTo = ctx.message.reply_to_message?.message_id;
+    const repliedTo = ctx.message?.reply_to_message?.message_id;
     const replyTaskId = repliedTo ? taskMessages.taskFor(chatId, repliedTo) : undefined;
     if (text.startsWith("/")) return ctx.reply("Commands: /new · /tasks · /reset — or just message me.");
     if (chats.countMessage(chatId) > env.CHAT_DAILY_LIMIT) {
       return ctx.reply(`You've reached today's chat limit (${env.CHAT_DAILY_LIMIT} messages). It resets tomorrow — /new still works anytime.`);
     }
     const platformName = ctx.me.first_name;
-    const userId = ctx.from.id;
     if (busy.has(chatId)) {
       // Don't drop messages sent while the agent is answering: answer them right after.
       const q = queued.get(chatId) ?? [];
-      q.push({ text, taskId: replyTaskId });
+      q.push({ text, taskId: replyTaskId, images });
       queued.set(chatId, q);
       if (q.length === 1) await ctx.reply("👍 Got it, I'll answer that right after this.");
       return;
@@ -259,16 +284,18 @@ export function createBot({ startTask, revise, exportHd, runner }: BotDeps) {
     inBackground(chatId, async () => {
       let message = text;
       let taskId = replyTaskId;
+      let pics = images;
       for (;;) {
-        await answerChat(chatId, userId, platformName, message, taskId);
+        await answerChat(chatId, userId, platformName, message, taskId, pics);
         const next = queued.get(chatId);
         if (!next?.length) break;
         queued.delete(chatId);
         message = next.map((m) => m.text).join("\n");
         taskId = [...next].reverse().find((m) => m.taskId)?.taskId;
+        pics = next.flatMap((m) => m.images).slice(-4);
       }
     });
-  });
+  }
 
   /**
    * One chat turn. The agent may end its reply with action tags, which we strip and execute:
@@ -276,10 +303,17 @@ export function createBot({ startTask, revise, exportHd, runner }: BotDeps) {
    *   [[REVISE|<feedback>]]     → revise the replied-to task (uses a free revision)
    *   [[EXPORT_HD]]             → 4K re-render of the replied-to task's images (free)
    */
-  async function answerChat(chatId: number, userId: number, platformName: string, text: string, replyTaskId?: string) {
+  async function answerChat(
+    chatId: number,
+    userId: number,
+    platformName: string,
+    text: string,
+    replyTaskId?: string,
+    images: ImageInput[] = [],
+  ) {
     const replyTask = replyTaskId ? tasks.get(replyTaskId) : undefined;
     const context = platformContext(platformName, chatId, userId) + (replyTask ? `\n\n${deliveredTaskContext(replyTask)}` : "");
-    const { reply, sessionId } = await runner.chat(chats.session(chatId), text, context);
+    const { reply, sessionId } = await runner.chat(chats.session(chatId), text, context, images);
     chats.setSession(chatId, sessionId);
 
     const revise = reply.match(/\[\[REVISE\|([\s\S]+?)\]\]/);

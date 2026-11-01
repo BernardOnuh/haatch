@@ -2,7 +2,7 @@ import { createOpencodeClient, type OpencodeClient, type Part } from "@opencode-
 import { createOpencodeServer } from "@opencode-ai/sdk/server";
 import { Agent } from "undici";
 import { env, paths } from "../config.js";
-import { BaseRunner, googleApiKey, withTimeout } from "./runner.js";
+import { BaseRunner, googleApiKey, withTimeout, type ImageInput } from "./runner.js";
 
 export type { WorkerJob, WorkerOutput } from "./runner.js";
 
@@ -88,13 +88,21 @@ export class OpenCodeRunner extends BaseRunner {
     return session.data.id;
   }
 
-  protected async prompt(sessionId: string, agent: string, text: string, system?: string) {
+  protected async prompt(sessionId: string, agent: string, text: string, system?: string, images: ImageInput[] = []) {
     const client = await this.api();
     const [providerID, ...rest] = env.OPENCODE_MODEL.split("/");
     const res = await withTimeout(
       client.session.prompt({
         path: { id: sessionId },
-        body: { agent, model: { providerID, modelID: rest.join("/") }, system, parts: [{ type: "text", text }] },
+        body: {
+          agent,
+          model: { providerID, modelID: rest.join("/") },
+          system,
+          parts: [
+            { type: "text", text },
+            ...images.map((i, n) => ({ type: "file" as const, mime: i.mime, filename: `image-${n + 1}`, url: `data:${i.mime};base64,${i.base64}` })),
+          ],
+        },
         throwOnError: true,
       }),
       env.OPENCODE_TIMEOUT_MS,

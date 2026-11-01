@@ -9,6 +9,12 @@ export interface WorkerJob {
   brief: string;
 }
 
+/** An image the founder sent (e.g. a logo or reference), passed to the model alongside text. */
+export interface ImageInput {
+  mime: string;
+  base64: string;
+}
+
 export interface WorkerOutput {
   result: WorkerResult;
   sessionId: string;
@@ -22,7 +28,7 @@ export interface AgentRunner {
   run(job: WorkerJob): Promise<WorkerOutput>;
   revise(sessionId: string, type: TaskType, request: string): Promise<WorkerOutput>;
   fixLayout(sessionId: string, type: TaskType, issues: string[]): Promise<WorkerOutput>;
-  chat(sessionId: string | undefined, message: string, context: string): Promise<{ reply: string; sessionId: string }>;
+  chat(sessionId: string | undefined, message: string, context: string, images?: ImageInput[]): Promise<{ reply: string; sessionId: string }>;
 }
 
 /** Conversational agent in agents-workspace/.opencode/agent/chat.md. */
@@ -40,7 +46,13 @@ export abstract class BaseRunner implements AgentRunner {
   abstract start(): void;
   abstract stop(): void;
   protected abstract createSession(title: string): Promise<string>;
-  protected abstract prompt(sessionId: string, agent: string, text: string, system?: string): Promise<{ text: string; cost: number }>;
+  protected abstract prompt(
+    sessionId: string,
+    agent: string,
+    text: string,
+    system?: string,
+    images?: ImageInput[],
+  ): Promise<{ text: string; cost: number }>;
 
   /** Execute a paid task in a fresh session. */
   async run(job: WorkerJob): Promise<WorkerOutput> {
@@ -79,9 +91,9 @@ export abstract class BaseRunner implements AgentRunner {
   }
 
   /** One conversational turn with the chat agent; starts a new session if the old one is unusable. */
-  async chat(sessionId: string | undefined, message: string, context: string): Promise<{ reply: string; sessionId: string }> {
+  async chat(sessionId: string | undefined, message: string, context: string, images: ImageInput[] = []): Promise<{ reply: string; sessionId: string }> {
     const system = `${context}\n\n${loadKnowledge(["core", "sectors", "copy"])}`;
-    const attempt = async (id: string) => (await this.prompt(id, CHAT_AGENT, message, system)).text.trim();
+    const attempt = async (id: string) => (await this.prompt(id, CHAT_AGENT, message, system, images)).text.trim();
     if (sessionId) {
       try {
         return { reply: await attempt(sessionId), sessionId };

@@ -3,7 +3,7 @@ import path from "node:path";
 import { Agent } from "undici";
 import { env, paths } from "../config.js";
 import { llmSessions, type LlmTurn } from "../db/db.js";
-import { BaseRunner, CHAT_AGENT, googleApiKey, withTimeout } from "./runner.js";
+import { BaseRunner, CHAT_AGENT, googleApiKey, withTimeout, type ImageInput } from "./runner.js";
 
 /**
  * Lightweight engine for small hosts (e.g. Render free, 512 MB) where the OpenCode server
@@ -27,14 +27,17 @@ export class DirectRunner extends BaseRunner {
     return llmSessions.create(title);
   }
 
-  protected async prompt(sessionId: string, agent: string, text: string, system?: string) {
+  protected async prompt(sessionId: string, agent: string, text: string, system?: string, images: ImageInput[] = []) {
     const history = llmSessions.history(sessionId);
     if (!history) throw new Error(`unknown session ${sessionId}`);
     const { prompt: agentPrompt, temperature } = loadAgent(agent);
 
     const body = {
       systemInstruction: { parts: [{ text: system ? `${agentPrompt}\n\n${system}` : agentPrompt }] },
-      contents: [...history, { role: "user", text }].map((t) => ({ role: t.role, parts: [{ text: t.text }] })),
+      contents: [
+        ...history.map((t) => ({ role: t.role, parts: [{ text: t.text }] })),
+        { role: "user", parts: [{ text }, ...images.map((i) => ({ inlineData: { mimeType: i.mime, data: i.base64 } }))] },
+      ],
       generationConfig: {
         temperature,
         maxOutputTokens: 32_768,
@@ -47,7 +50,8 @@ export class DirectRunner extends BaseRunner {
     const model = agent === CHAT_AGENT ? env.DIRECT_CHAT_MODEL : this.model;
     const reply = await withTimeout(this.generate(model, body), agent === CHAT_AGENT ? 90_000 : env.OPENCODE_TIMEOUT_MS);
     llmSessions.append(sessionId, [
-      { role: "user", text },
+      // Images aren't kept in history (size); the agent's own reply describes what it saw.
+      { role: "user", text: images.length ? `${text}\n[${images.length} image(s) attached]` : text },
       { role: "model", text: reply },
     ] satisfies LlmTurn[]);
     return { text: reply, cost: 0 };
