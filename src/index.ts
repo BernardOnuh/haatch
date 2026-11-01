@@ -9,7 +9,7 @@ import { Renderer } from "./render/renderer.js";
 import { createBot, telegramNotifier } from "./bot/telegram.js";
 
 const runner = new OpenCodeRunner();
-await runner.start();
+runner.start(); // boots OpenCode in the background; the web server and bot come up first
 
 // Free-trial tasks skip payment and go straight to the worker queue.
 const renderer = new Renderer();

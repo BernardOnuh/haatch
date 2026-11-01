@@ -35,12 +35,35 @@ const CHAT_AGENT = "chat";
 export class OpenCodeRunner {
   private client?: OpencodeClient;
   private closeServer?: () => void;
+  private ready?: Promise<OpencodeClient>;
 
-  async start() {
+  /**
+   * Starts OpenCode in the background and returns immediately. Agent calls wait for it.
+   * Small hosts can take well over the SDK's default 5s to boot `opencode serve`, so each
+   * attempt gets 90s, and failed attempts retry instead of taking the whole app down.
+   */
+  start() {
+    this.ready ??= this.connectWithRetry();
+    this.ready.catch(() => {}); // surfaced to callers via api()
+  }
+
+  private async connectWithRetry(attempts = 5): Promise<OpencodeClient> {
+    for (let i = 1; ; i++) {
+      try {
+        return await this.connect();
+      } catch (e) {
+        console.error(`[opencode] start attempt ${i}/${attempts} failed: ${(e as Error).message}`);
+        if (i >= attempts) throw e;
+        await new Promise((r) => setTimeout(r, 5_000 * i));
+      }
+    }
+  }
+
+  private async connect(): Promise<OpencodeClient> {
     let baseUrl = env.OPENCODE_URL;
     if (!baseUrl) {
       // Spawns `opencode serve` as a child process (needs the `opencode` CLI on PATH).
-      const server = await createOpencodeServer({ hostname: "127.0.0.1", port: 0 });
+      const server = await createOpencodeServer({ hostname: "127.0.0.1", port: 0, timeout: 90_000 });
       baseUrl = server.url;
       this.closeServer = server.close;
     }
@@ -53,6 +76,7 @@ export class OpenCodeRunner {
       fetch: (req: Request) => fetch(req, { dispatcher } as RequestInit),
     });
     console.log(`[opencode] connected to ${baseUrl} (workspace ${paths.agentsWorkspace})`);
+    return this.client;
   }
 
   stop() {
@@ -114,17 +138,17 @@ export class OpenCodeRunner {
   }
 
   private async createSession(title: string): Promise<string> {
-    const session = await this.api().session.create({ body: { title }, throwOnError: true });
+    const session = await (await this.api()).session.create({ body: { title }, throwOnError: true });
     return session.data.id;
   }
 
-  private api(): OpencodeClient {
-    if (!this.client) throw new Error("OpenCodeRunner not started");
-    return this.client;
+  private api(): Promise<OpencodeClient> {
+    if (!this.ready) throw new Error("OpenCodeRunner not started");
+    return this.ready;
   }
 
   private async prompt(sessionId: string, agent: string, text: string, system?: string) {
-    const client = this.api();
+    const client = await this.api();
     const [providerID, ...rest] = env.OPENCODE_MODEL.split("/");
     const res = await withTimeout(
       client.session.prompt({
