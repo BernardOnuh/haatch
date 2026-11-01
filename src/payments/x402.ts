@@ -45,9 +45,9 @@ export const routes: RoutesConfig = {
         };
       },
     },
-    description: "Startup Task Agents — pay for one branding task, executed by an OpenCode agent",
+    description: "haatch — pay for one web3 creative task (flyer, campaign, captions), executed by an OpenCode design agent",
     mimeType: "application/json",
-    serviceName: "Startup Task Agents",
+    serviceName: "haatch",
     unpaidResponseBody: (ctx) => {
       const task = tasks.get(taskIdFromPath(ctx.path) ?? "");
       return {
