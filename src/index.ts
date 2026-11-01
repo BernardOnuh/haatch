@@ -48,9 +48,21 @@ const http = serve({ fetch: app.fetch, port: env.PORT }, ({ port }) =>
 );
 
 if (env.TELEGRAM_MODE === "webhook") {
-  await bot.init();
-  await bot.api.setWebhook(`${env.PUBLIC_URL}${webhookPath}`, { secret_token: webhookSecret });
-  console.log(`[bot] @${bot.botInfo.username} webhook → ${env.PUBLIC_URL}/telegram/…`);
+  // Register the webhook in the background, retrying, so a Telegram hiccup at boot can't
+  // take the web server (and x402 payments) down with it.
+  void (async () => {
+    for (let attempt = 1; ; attempt++) {
+      try {
+        await bot.init();
+        await bot.api.setWebhook(`${env.PUBLIC_URL}${webhookPath}`, { secret_token: webhookSecret });
+        console.log(`[bot] @${bot.botInfo.username} webhook → ${env.PUBLIC_URL}/telegram/…`);
+        return;
+      } catch (e) {
+        console.error(`[bot] webhook setup attempt ${attempt} failed: ${(e as Error).message}`);
+        await new Promise((r) => setTimeout(r, Math.min(60_000, 5_000 * attempt)));
+      }
+    }
+  })();
 } else {
   // bot.start() removes any webhook left over from a webhook deployment before polling.
   void bot.start({ onStart: (me) => console.log(`[bot] @${me.username} polling`) });

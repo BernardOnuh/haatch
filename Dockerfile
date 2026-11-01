@@ -22,13 +22,16 @@ WORKDIR /home/node/app
 COPY --chown=node:node package.json package-lock.json ./
 RUN npm ci
 COPY --chown=node:node . .
-RUN npm run build:pay
+RUN npm run build
 
+# BUN_OPTIONS=--smol: OpenCode (a Bun app) uses ~20% less memory.
 ENV NODE_ENV=production \
+    BUN_OPTIONS=--smol \
     CHROME_PATH=/usr/bin/chromium \
     DATABASE_PATH=/data/app.db \
     PORT=3000
 # SQLite database + rendered assets. Mount a persistent volume here if your host offers one.
 VOLUME /data
 EXPOSE 3000
-CMD ["npx", "tsx", "src/index.ts"]
+# Precompiled JS: faster cold starts than compiling TypeScript at boot.
+CMD ["node", "--max-old-space-size=192", "dist/index.js"]

@@ -10,7 +10,9 @@
     "register-agent": "tsx scripts/register-agent.ts",
     "test-pay": "tsx scripts/test-pay.ts",
     "test-worker": "tsx scripts/test-worker.ts",
-    "demo-wallet": "tsx scripts/demo-wallet.ts"
+    "demo-wallet": "tsx scripts/demo-wallet.ts",
+    "build": "npm run build:pay && esbuild src/index.ts --bundle --platform=node --format=esm --target=node22 --packages=external --outfile=dist/index.js",
+    "start:prod": "node --max-old-space-size=160 dist/index.js"
   },
   "type": "module",
   "dependencies": {
