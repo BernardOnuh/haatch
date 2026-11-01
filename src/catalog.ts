@@ -29,6 +29,15 @@ export const CATALOG = {
     produces: { kind: "image", min: 2 },
     listed: true,
   },
+  social_kit: {
+    title: "X / Twitter kit",
+    price: "3.00",
+    agent: "web3-designer",
+    deliverable: "X header banner (1500×500), profile picture, and a launch post image (1600×900), built from your logo and colors.",
+    knowledge: ["core", "sectors", "visual-system", "copy", "logo"],
+    produces: { kind: "image", min: 3 },
+    listed: true,
+  },
   flyer: {
     title: "Web3 promo flyer",
     price: "3.00",

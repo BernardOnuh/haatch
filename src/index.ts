@@ -16,6 +16,7 @@ const renderer = new Renderer();
 const bot = createBot({
   startTask: (taskId) => orchestrator.enqueue(taskId),
   revise: (taskId, feedback) => orchestrator.revise(taskId, feedback),
+  exportHd: (taskId) => orchestrator.exportHd(taskId),
   runner,
 });
 const orchestrator = new Orchestrator(runner, renderer, telegramNotifier(bot), env.WORKER_CONCURRENCY);

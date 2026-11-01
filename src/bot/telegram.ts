@@ -107,16 +107,32 @@ function platformContext(platformName: string, chatId: number, userId: number): 
   ].join("\n");
 }
 
+/** Logo + brand notes from the chat's latest delivered logo, appended to social-kit briefs. */
+function brandAssetsFor(chatId: number): string {
+  const logo = tasks.listByChat(chatId, 20).find((t) => t.type === "logo" && t.status === "delivered" && t.result_json);
+  if (!logo) return "";
+  const r = JSON.parse(logo.result_json!) as StoredResult;
+  return [
+    "",
+    "",
+    "BRAND ASSETS (from the founder's delivered haatch logo — use them exactly, do not redesign the logo):",
+    r.logo_svg ? `Logo mark SVG: ${r.logo_svg}` : "",
+    `Brand notes (palette, fonts): ${r.deliverable_markdown.slice(0, 1800)}`,
+  ].join("\n");
+}
+
 interface BotDeps {
   /** Hands a ready (paid or trial) task to the orchestrator. */
   startTask: (taskId: string) => void;
   /** Revises a delivered task (agent + re-render) and returns the new result. */
   revise: (taskId: string, feedback: string) => Promise<{ task: Task; result: StoredResult }>;
+  /** Re-renders a delivered task's images at 4K (no agent call). */
+  exportHd: (taskId: string) => Promise<{ file: string; width: number; height: number }[]>;
   /** Agent engine, used for chat. */
   runner: AgentRunner;
 }
 
-export function createBot({ startTask, revise, runner }: BotDeps) {
+export function createBot({ startTask, revise, exportHd, runner }: BotDeps) {
   const bot = new Bot(env.TELEGRAM_BOT_TOKEN);
   // chatId → service picked and waiting for a brief. In-memory is fine for the MVP.
   const pendingType = new Map<number, TaskType>();
@@ -140,7 +156,7 @@ export function createBot({ startTask, revise, runner }: BotDeps) {
   // Chats with an agent call in flight. One at a time per chat keeps sessions coherent.
   const busy = new Set<number>();
   // Chat messages that arrived while the agent was still answering; answered together next.
-  const queued = new Map<number, string[]>();
+  const queued = new Map<number, { text: string; taskId?: string }[]>();
 
   /**
    * Runs slow agent work without blocking the update loop (grammY polls sequentially, so
@@ -222,12 +238,10 @@ export function createBot({ startTask, revise, runner }: BotDeps) {
     const type = pendingType.get(chatId);
     if (type) return handleBrief(ctx.chat.id, ctx.from.id, type, text, (m, o) => ctx.reply(m, o));
 
-    // 2. A reply to a delivered file → revision by the agent that did the work.
+    // 2. Everything else → the chat agent. A reply to a delivered file carries that task as
+    //    context, and the agent decides: answer, revise, export in 4K, or start new work.
     const repliedTo = ctx.message.reply_to_message?.message_id;
-    const revisionTaskId = repliedTo ? taskMessages.taskFor(chatId, repliedTo) : undefined;
-    if (revisionTaskId) return handleRevision(revisionTaskId, text, (m) => ctx.reply(m));
-
-    // 3. Anything else → conversation with the chat agent.
+    const replyTaskId = repliedTo ? taskMessages.taskFor(chatId, repliedTo) : undefined;
     if (text.startsWith("/")) return ctx.reply("Commands: /new · /tasks · /reset — or just message me.");
     if (chats.countMessage(chatId) > env.CHAT_DAILY_LIMIT) {
       return ctx.reply(`You've reached today's chat limit (${env.CHAT_DAILY_LIMIT} messages). It resets tomorrow — /new still works anytime.`);
@@ -237,31 +251,41 @@ export function createBot({ startTask, revise, runner }: BotDeps) {
     if (busy.has(chatId)) {
       // Don't drop messages sent while the agent is answering: answer them right after.
       const q = queued.get(chatId) ?? [];
-      q.push(text);
+      q.push({ text, taskId: replyTaskId });
       queued.set(chatId, q);
       if (q.length === 1) await ctx.reply("👍 Got it, I'll answer that right after this.");
       return;
     }
     inBackground(chatId, async () => {
       let message = text;
+      let taskId = replyTaskId;
       for (;;) {
-        await answerChat(chatId, userId, platformName, message);
+        await answerChat(chatId, userId, platformName, message, taskId);
         const next = queued.get(chatId);
         if (!next?.length) break;
         queued.delete(chatId);
-        message = next.join("\n");
+        message = next.map((m) => m.text).join("\n");
+        taskId = [...next].reverse().find((m) => m.taskId)?.taskId;
       }
     });
   });
 
-  /** One chat turn: agent reply, plus a one-tap Start button if the agent proposed a task. */
-  async function answerChat(chatId: number, userId: number, platformName: string, text: string) {
-    const { reply, sessionId } = await runner.chat(chats.session(chatId), text, platformContext(platformName, chatId, userId));
+  /**
+   * One chat turn. The agent may end its reply with action tags, which we strip and execute:
+   *   [[ORDER:<type>|<brief>]]  → one-tap "Start" button for a new task
+   *   [[REVISE|<feedback>]]     → revise the replied-to task (uses a free revision)
+   *   [[EXPORT_HD]]             → 4K re-render of the replied-to task's images (free)
+   */
+  async function answerChat(chatId: number, userId: number, platformName: string, text: string, replyTaskId?: string) {
+    const replyTask = replyTaskId ? tasks.get(replyTaskId) : undefined;
+    const context = platformContext(platformName, chatId, userId) + (replyTask ? `\n\n${deliveredTaskContext(replyTask)}` : "");
+    const { reply, sessionId } = await runner.chat(chats.session(chatId), text, context);
     chats.setSession(chatId, sessionId);
 
-    // The chat agent can propose a ready-to-start task: [[ORDER:<type>|<brief>]] → "Design it" button.
+    const revise = reply.match(/\[\[REVISE\|([\s\S]+?)\]\]/);
+    const wantsHd = /\[\[EXPORT_HD\]\]/.test(reply);
     const order = reply.match(/\[\[ORDER:([a-z_]+)\|([\s\S]+?)\]\]/);
-    const shown = reply.replace(/\[\[ORDER:[\s\S]*?\]\]/g, "").trim() || "…";
+    const shown = reply.replace(/\[\[(ORDER|REVISE|EXPORT_HD)[\s\S]*?\]\]/g, "").trim() || "…";
     const type = order?.[1];
     const offer = type && isTaskType(type) && listedServices().some(([t]) => t === type) && order[2].trim().length >= 40;
     let markup: InlineKeyboard | undefined;
@@ -274,6 +298,36 @@ export function createBot({ startTask, revise, runner }: BotDeps) {
         .text("✏️ Write my own brief", `svc:${type}`);
     }
     await sendRich(chatId, shown, markup);
+
+    // Actions on the replied-to delivery run after the reply, still inside this chat's job.
+    if (replyTask && wantsHd) await sendHdExport(replyTask);
+    if (replyTask && revise) await runRevision(replyTask, revise[1].trim());
+  }
+
+  /** Tells the chat agent which delivery the founder is replying to. */
+  function deliveredTaskContext(task: Task): string {
+    const result = task.result_json ? (JSON.parse(task.result_json) as StoredResult) : undefined;
+    const images = result?.assets.filter((a) => a.kind === "image").map((a) => `${a.name} ${a.width}×${a.height}`) ?? [];
+    return [
+      "REPLYING TO DELIVERED TASK:",
+      `Service: ${CATALOG[task.type].title} (type ${task.type}) — status ${task.status}`,
+      `Title: ${result?.title ?? "-"}`,
+      `Summary: ${result?.summary ?? "-"}`,
+      `Image files delivered: ${images.join(", ") || "none"}${result?.logo_svg ? " + vector SVG logo" : ""}`,
+      `Free revisions left on this task: ${Math.max(0, env.FREE_REVISIONS - task.revisions)}`,
+    ].join("\n");
+  }
+
+  async function sendHdExport(task: Task) {
+    await bot.api.sendMessage(task.chat_id, "🖼 Rendering 4K versions… (about a minute)");
+    const files = await exportHd(task.id);
+    if (!files.length) return void (await bot.api.sendMessage(task.chat_id, "This delivery has no images to export."));
+    const docs = files.map((f) => InputMediaBuilder.document(new InputFile(path.join(paths.assets, f.file), path.basename(f.file))));
+    docs[docs.length - 1] = InputMediaBuilder.document(new InputFile(path.join(paths.assets, files.at(-1)!.file), path.basename(files.at(-1)!.file)), {
+      caption: `4K files: ${files.map((f) => `${f.width}×${f.height}`).join(" · ")}. Full quality, sent as files so Telegram doesn't compress them.`,
+    });
+    const sent = docs.length === 1 ? [await bot.api.sendDocument(task.chat_id, docs[0].media, { caption: docs[0].caption })] : await bot.api.sendMediaGroup(task.chat_id, docs);
+    for (const m of sent) taskMessages.link(task.chat_id, m.message_id, task.id);
   }
 
   async function handleBrief(
@@ -285,6 +339,7 @@ export function createBot({ startTask, revise, runner }: BotDeps) {
   ) {
     if (brief.length < 40) return reply("That's a bit short — a few more details make the work much better.");
     pendingType.delete(chatId);
+    if (type === "social_kit") brief += brandAssetsFor(chatId);
 
     if (trialsLeft(userId) > 0 && tasks.trialsToday() < env.FREE_TRIAL_DAILY_CAP) {
       const trial = tasks.createTrial({ chat_id: chatId, user_id: userId, type, brief });
@@ -363,28 +418,24 @@ export function createBot({ startTask, revise, runner }: BotDeps) {
     });
   });
 
-  async function handleRevision(taskId: string, feedback: string, reply: (msg: string) => Promise<unknown>) {
-    const task = tasks.get(taskId);
-    if (!task || task.status !== "delivered" || !task.opencode_session) {
-      return reply("This task can't be revised right now.");
+  /** Revise a delivered task; runs inside the chat job that decided it was a revision. */
+  async function runRevision(task: Task, feedback: string) {
+    if (task.status !== "delivered" || !task.opencode_session) {
+      return void (await bot.api.sendMessage(task.chat_id, "This task can't be revised right now."));
     }
     if (task.revisions >= env.FREE_REVISIONS) {
-      return reply(`You've used all ${env.FREE_REVISIONS} revisions for this task. For a fresh take, start a new one with /new.`);
+      return void (await bot.api.sendMessage(task.chat_id, `You've used all ${env.FREE_REVISIONS} revisions for this task. For a fresh take, start a new one with /new.`));
     }
-    if (feedback.length < 5) return reply("Tell me what to change — e.g. “more playful”, “shorter captions”, “drop the emoji”.");
-
     const n = task.revisions + 1;
-    await reply(`✏️ On it — revision ${n} of ${env.FREE_REVISIONS}. Design + render usually takes 2–4 minutes.`);
-    inBackground(task.chat_id, async () => {
-      const { task: updated, result } = await revise(task.id, feedback);
-      const left = env.FREE_REVISIONS - n;
-      await sendDeliverable(
-        bot.api,
-        updated,
-        result,
-        `Revision ${n} of ${env.FREE_REVISIONS}.` + (left > 0 ? ` ↩️ Reply to this file for more changes (${left} left).` : ""),
-      );
-    });
+    await bot.api.sendMessage(task.chat_id, `✏️ Revising — ${n} of ${env.FREE_REVISIONS}. Design + render usually takes 2–4 minutes.`);
+    const { task: updated, result } = await revise(task.id, feedback);
+    const left = env.FREE_REVISIONS - n;
+    await sendDeliverable(
+      bot.api,
+      updated,
+      result,
+      `Revision ${n} of ${env.FREE_REVISIONS}.` + (left > 0 ? ` ↩️ Reply to this file for more changes (${left} left).` : ""),
+    );
   }
 
   bot.catch((err) => console.error("[bot]", err.error));

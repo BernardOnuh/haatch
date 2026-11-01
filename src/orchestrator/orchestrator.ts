@@ -3,6 +3,9 @@ import type { Renderer } from "../render/renderer.js";
 import type { AgentRunner, WorkerOutput } from "../workers/runner.js";
 import type { StoredResult } from "../workers/result-schema.js";
 import { produce } from "../studio/produce.js";
+import { mkdirSync, writeFileSync } from "node:fs";
+import path from "node:path";
+import { env, paths } from "../config.js";
 import type { TaskType } from "../catalog.js";
 
 const MAX_ATTEMPTS = 2;
@@ -116,6 +119,29 @@ export class Orchestrator {
       revisions: task.revisions + 1,
     });
     return { task: tasks.get(taskId)!, result };
+  }
+
+  /**
+   * High-resolution export of a delivered task's images (longest side 3840px = 4K), re-rendered
+   * from the stored design source. No agent call and no redesign, so it's free.
+   */
+  async exportHd(taskId: string): Promise<{ file: string; width: number; height: number }[]> {
+    const task = tasks.get(taskId);
+    if (!task?.result_json) throw new Error(`task ${taskId} has no result`);
+    const result = JSON.parse(task.result_json) as StoredResult;
+    const out: { file: string; width: number; height: number }[] = [];
+    try {
+      for (const asset of result.assets.filter((a) => a.kind === "image")) {
+        const scale = 3840 / Math.max(asset.width, asset.height);
+        const file = `${taskId}/${asset.name}-4k.png`;
+        mkdirSync(path.join(paths.assets, taskId), { recursive: true });
+        writeFileSync(path.join(paths.assets, file), await this.renderer.renderImage(asset, scale));
+        out.push({ file, width: Math.round(asset.width * scale), height: Math.round(asset.height * scale) });
+      }
+    } finally {
+      if (env.LOW_MEMORY) await this.renderer.close();
+    }
+    return out;
   }
 
   private produce(taskId: string, type: TaskType, out: WorkerOutput, version: number): Promise<StoredResult> {

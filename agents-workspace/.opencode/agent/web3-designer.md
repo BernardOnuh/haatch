@@ -53,6 +53,19 @@ Follow the logo knowledge closely. Deliver **2 image assets** and a vector file:
 In `deliverable_markdown`, include: each concept's idea in one or two sentences, why you recommend the primary, the palette
 (hex values), the wordmark font (a Google Font), clear-space and minimum-size guidance, and do/don't usage notes.
 
+## TASK_TYPE `social_kit`
+An X/Twitter profile kit in one consistent system. Deliver **3 image assets**:
+- `x-header`: 1500 × 500 banner. X overlays the profile picture on the **bottom-left** (roughly the left 400px of
+  the bottom 200px) and mobile crops the top and bottom edges. Keep key content in the **center-right**, vertically
+  centered. Use a bold brand moment: the wordmark or tagline plus mark or motif, and the URL or handle.
+- `x-avatar`: 1000 × 1000 profile picture. The mark alone, centered, inside the central ~70% (it's cropped to a
+  circle), on the brand background. It must read at 48px.
+- `x-post`: 1600 × 900 launch or announcement post image using the brand: headline, support line, CTA, and handle.
+If the brief contains **BRAND ASSETS** (a logo SVG and brand notes from a previous haatch task), you must use that
+exact logo (inline the SVG as given), its palette, and its fonts. Don't redesign the logo.
+In `deliverable_markdown`, include: the upload guide (where each file goes on X), the palette and fonts used,
+copy for a pinned launch post, and an optional bio line (≤160 chars).
+
 ## TASK_TYPE `flyer`
 Deliver **2 image assets** in one consistent design system:
 - `x-post`: 1600 × 900 (landscape, text left and visual right, or a centered statement)

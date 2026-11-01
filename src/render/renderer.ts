@@ -106,9 +106,9 @@ export class Renderer {
     }
   }
 
-  private async openPage(asset: DesignAsset): Promise<Page> {
+  private async openPage(asset: DesignAsset, scale = 1): Promise<Page> {
     const page = await (await this.getBrowser()).newPage();
-    await page.setViewport({ width: asset.width, height: asset.height, deviceScaleFactor: 1 });
+    await page.setViewport({ width: asset.width, height: asset.height, deviceScaleFactor: scale });
     await page.setRequestInterception(true);
     page.on("request", (req) => {
       const url = req.url();
@@ -125,8 +125,9 @@ export class Renderer {
     return page;
   }
 
-  async renderImage(asset: DesignAsset): Promise<Buffer> {
-    const page = await this.openPage(asset);
+  /** @param scale device pixel ratio: 1 = declared size; 3840/longest-side = 4K export. */
+  async renderImage(asset: DesignAsset, scale = 1): Promise<Buffer> {
+    const page = await this.openPage(asset, scale);
     try {
       // Settle any entrance animations so the still shows the final composition.
       await page.evaluate(() => {
