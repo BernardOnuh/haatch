@@ -18,6 +18,7 @@
   "dependencies": {
     "@hono/node-server": "^2.1.5",
     "@opencode-ai/sdk": "^1.19.4",
+    "@selfxyz/agent-sdk": "^0.3.0",
     "@x402/core": "^2.28.0",
     "@x402/evm": "^2.28.0",
     "@x402/fetch": "^2.28.0",

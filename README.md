@@ -178,6 +178,16 @@ OpenCode agents are code agents, so they design in what they're best at: **HTML/
 haatch publishes an ERC-8004 registration file at `/.well-known/agent-registration.json`. It lists services,
 skills, and `x402Support`. `npm run register-agent` mints its Agent ID on Celo's Identity Registry.
 
+### 6. Self proof-of-human gate
+
+The agent-to-agent entry point (`POST /api/tasks`) can require proof that a real, unique human stands
+behind the calling agent. Set `SELF_REQUIRED=true`; clients use `SelfAgent` from `@selfxyz/agent-sdk`, whose
+`fetch()` signs each request with `x-self-agent-*` headers. The server recovers the address from the
+signature and checks registration + proof freshness against Self's registry on Celo — no personal data
+leaves the phone. Off by default so the live pay flow never depends on Self RPCs. See `src/identity/self.ts`.
+
+For the first real mainnet settlement, copy `.env.mainnet.example` to `.env` and fill the placeholders.
+
 ## Brand kit
 
 | | |

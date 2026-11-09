@@ -12,6 +12,7 @@ import { resourceServer, routes } from "../payments/x402.js";
 import { payPage } from "./pay-page.js";
 import { agentCard, agentUri, IDENTITY_REGISTRY } from "../identity/erc8004.js";
 import { attributionSuffix } from "../identity/attribution.js";
+import { selfGate } from "../identity/self.js";
 
 const publicTask = (t: Task) => ({
   id: t.id,
@@ -52,7 +53,9 @@ export function createApp() {
 
   // Agent-to-agent entry point: other agents can create + pay tasks without Telegram.
   // (Results for API-created tasks are fetched via GET /api/tasks/:id.)
-  app.post("/api/tasks", async (c) => {
+  // When SELF_REQUIRED=true, the creating agent must present a valid Self proof that a
+  // real, unique human is behind it (x-self-agent-* headers).
+  app.post("/api/tasks", selfGate(), async (c) => {
     const body = z
       .object({ type: z.string().refine((t) => listedServices().some(([type]) => type === t), "unknown task type"), brief: z.string().min(20).max(4000) })
       .safeParse(await c.req.json().catch(() => null));
