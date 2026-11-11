@@ -74,6 +74,17 @@ const Env = z.object({
   KEEP_AWAKE: z.stringbool().default(false),
   /** Small hosts (Render free, 512 MB): one job at a time, Chrome closed between renders, no video. */
   LOW_MEMORY: z.stringbool().default(false),
+  /**
+   * Self Agent ID gate (proof-of-human behind an agent). Off by default: the live pay
+   * flow stays open, and turning it on requires clients to send x-self-agent-* headers.
+   */
+  SELF_REQUIRED: z.stringbool().default(false),
+  /** Self network to verify against; defaults to the payment network's chain. */
+  SELF_NETWORK: z.enum(["mainnet", "testnet"]).optional(),
+  /** Max agents one human may run against this service (0 disables the sybil check). */
+  SELF_SYBIL_LIMIT: z.coerce.number().int().min(0).default(1),
+  /** Require the human to be at least this old (enables Self credential checks). */
+  SELF_MIN_AGE: z.coerce.number().int().min(0).optional(),
   /** ERC-8021 attribution code from the Loops hackathon registration; appended to every tx we send. */
   ATTRIBUTION_CODE: z.string().optional().transform((v) => v?.trim() || undefined),
   /** Protects operator-only pages (e.g. /register-agent). */
@@ -86,13 +97,15 @@ const Env = z.object({
 process.env.PUBLIC_URL ||= process.env.RENDER_EXTERNAL_URL;
 
 export const env = Env.transform((e) => {
+  // Self verifies against the same chain as payments unless explicitly overridden.
+  const selfNetwork = e.SELF_NETWORK ?? (e.X402_NETWORK === "mainnet" ? "mainnet" : "testnet");
   // The demo wallet pays with the platform's own funds — fine for testnet demos, but on mainnet
   // those payments aren't "independent" (and would spend real money), so it's disabled there.
   if (e.X402_NETWORK === "mainnet" && e.DEMO_PAYER_PRIVATE_KEY) {
     console.warn("[config] DEMO_PAYER_PRIVATE_KEY ignored on mainnet — demo wallet payments are testnet-only.");
-    return { ...e, DEMO_PAYER_PRIVATE_KEY: undefined };
+    return { ...e, DEMO_PAYER_PRIVATE_KEY: undefined, SELF_NETWORK: selfNetwork };
   }
-  return e;
+  return { ...e, SELF_NETWORK: selfNetwork };
 }).parse(process.env);
 
 /**
